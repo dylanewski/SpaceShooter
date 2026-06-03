@@ -8,17 +8,14 @@ class Player(CircleShape):
         super().__init__(x, y, PLAYER_RADIUS)
         self.rotation = 0
         self.shot_cooldown = 0.0
+        raw = pygame.image.load("assets/images/ship.png").convert_alpha()
+        size = PLAYER_RADIUS * 2
+        self._image = pygame.transform.scale(raw, (size, size))
 
-    def triangle(self) -> list[pygame.Vector2]:
-        forward = pygame.Vector2(0, 1).rotate(self.rotation)
-        right = pygame.Vector2(0, 1).rotate(self.rotation + 90) * self.radius / 1.5
-        a = self.position + forward * self.radius
-        b = self.position - forward * self.radius - right
-        c = self.position - forward * self.radius + right
-        return [a, b, c]
-    
     def draw(self, screen):
-        pygame.draw.polygon(screen, "white", self.triangle(), LINE_WIDTH)
+        rotated = pygame.transform.rotate(self._image, -self.rotation + 180)
+        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
+        screen.blit(rotated, rect)
 
     def rotate(self,dt):
         self.rotation += PLAYER_TURN_SPEED * dt
