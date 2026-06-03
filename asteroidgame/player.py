@@ -9,8 +9,9 @@ class Player(CircleShape):
         self.rotation = 0
         self.shot_cooldown = 0.0
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
-        size = PLAYER_RADIUS * 2
-        self._image = pygame.transform.scale(raw, (size, size))
+        target = PLAYER_RADIUS * 2
+        scale = target / max(raw.get_width(), raw.get_height())
+        self._image = pygame.transform.scale(raw, (int(raw.get_width() * scale), int(raw.get_height() * scale)))
 
     def draw(self, screen):
         rotated = pygame.transform.rotate(self._image, -self.rotation + 180)
