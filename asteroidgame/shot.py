@@ -1,5 +1,5 @@
-from circleshape import CircleShape
-from constants import LINE_WIDTH, SHOT_RADIUS, SHOT_SPEED
+from .circleshape import CircleShape
+from .constants import LINE_WIDTH, SHOT_RADIUS, SHOT_SPEED
 import pygame
 
 

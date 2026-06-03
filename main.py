@@ -1,11 +1,11 @@
 import pygame
-from asteroid import Asteroid
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT
-from logger import log_state, log_event
-from player import Player
-from asteroidfield import AsteroidField
+from asteroidgame.asteroid import Asteroid
+from asteroidgame.constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from asteroidgame.logger import log_state, log_event
+from asteroidgame.player import Player
+from asteroidgame.asteroidfield import AsteroidField
 import sys
-from shot import Shot
+from asteroidgame.shot import Shot
 
 def main():
     print(f"Starting Asteroids with pygame version: {pygame.version.ver}")
@@ -42,7 +42,7 @@ def main():
             for s in shots:
                 if a.collides_with(s):
                     log_event("asteroid_shot")
-                    a.kill()
+                    a.split()
                     s.kill()
 
         for a in asteroids:
