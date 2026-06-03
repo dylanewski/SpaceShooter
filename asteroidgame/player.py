@@ -8,7 +8,7 @@ class Player(CircleShape):
         super().__init__(x, y, PLAYER_RADIUS)
         self.rotation = 0
         self.shot_cooldown = 0.0
-        raw = pygame.image.load("assets/images/ship.png").convert_alpha()
+        raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
         size = PLAYER_RADIUS * 2
         self._image = pygame.transform.scale(raw, (size, size))
 
