@@ -22,7 +22,8 @@ class XPStar(pygame.sprite.Sprite):
             random.uniform(margin, SCREEN_WIDTH  - margin),
             random.uniform(margin, SCREEN_HEIGHT - margin),
         )
-        self.radius = XP_STAR_RADIUS
+        self.radius        = XP_STAR_RADIUS
+        self.pickup_radius = XP_STAR_RADIUS * 2
         self._age   = 0.0
         self._spin  = random.uniform(0, 360)
 

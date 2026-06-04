@@ -95,8 +95,18 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     exp_surf      = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     danger_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 36)
     icon_font     = pygame.font.Font("assets/fonts/Symtext.ttf", 11)
+    boss_excl_font = pygame.font.Font("assets/fonts/Symtext.ttf", 180)
+    try:
+        _excl_raw    = pygame.image.load("assets/images/game/skull!boss.png").convert_alpha()
+        _excl_scale  = 300 / max(_excl_raw.get_width(), _excl_raw.get_height())
+        boss_excl_image = pygame.transform.scale(
+            _excl_raw,
+            (int(_excl_raw.get_width() * _excl_scale), int(_excl_raw.get_height() * _excl_scale))
+        )
+    except Exception:
+        boss_excl_image = None
 
-    _skull_raw   = pygame.image.load("assets/images/game/Skull Ui.png").convert_alpha()
+    _skull_raw   = pygame.image.load("assets/images/game/skulluismall.png").convert_alpha()
     _skull_size  = 34
     skull_image  = pygame.transform.scale(_skull_raw, (_skull_size, _skull_size))
 
@@ -152,6 +162,9 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
     death_active   = False
     death_timer    = 0.0
+
+    boss_intro_active = False
+    boss_intro_timer  = 0.0
     death_pos      = None
     DEATH_DURATION = 1.6
 
@@ -204,7 +217,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     vortex_cooldown = 15.0
     vortex_timer    = 0.0
 
-    missile_stacks        = 1
+    missile_stacks        = 0
     missile_cooldown      = 6.0
     missile_timer         = 0.0
     missile_queue         = []
@@ -358,10 +371,18 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             dt        = clock.tick(60) / 1000
             game_time += dt
 
-            # time-based spawn rate ramp (0 → max over 300 s)
+            # boss intro trigger
+            if not boss_intro_active and game_time >= 300.0:
+                boss_intro_active = True
+                boss_intro_timer  = 0.0
+
+            # time-based spawn rate ramp (0 → max over 300 s) — frozen during boss intro
             _t = min(1.0, game_time / 300.0)
-            asteroid_field.spawn_rate = (ASTEROID_SPAWN_RATE_SECONDS * 8 +
-                (ASTEROID_SPAWN_RATE_SECONDS / 2 - ASTEROID_SPAWN_RATE_SECONDS * 8) * _t)
+            if boss_intro_active:
+                asteroid_field.spawn_rate = 9999.0
+            else:
+                asteroid_field.spawn_rate = (ASTEROID_SPAWN_RATE_SECONDS * 8 +
+                    (ASTEROID_SPAWN_RATE_SECONDS / 2 - ASTEROID_SPAWN_RATE_SECONDS * 8) * _t)
             enemy_spawn_rate = ENEMY_SPAWN_RATE_START + (ENEMY_SPAWN_RATE_MIN - ENEMY_SPAWN_RATE_START) * _t
 
             # score ticks up every second
@@ -418,13 +439,12 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
             # afterburn fire trail
             if afterburn_stacks > 0:
-                if player.is_thrusting:
+                if player.velocity.length() >= player.speed * 0.92:
                     afterburn_timer += dt
-                    spawn_interval = 0.12 / (1.0 + (afterburn_stacks - 1) * 0.3)
-                    if afterburn_timer >= spawn_interval and len(fire_blobs) < afterburn_stacks * 8:
+                    if afterburn_timer >= 0.07 and len(fire_blobs) < afterburn_stacks * 5:
                         afterburn_timer = 0.0
-                        blob_lifetime   = 5.0 * (1.0 + (afterburn_stacks - 1) * 0.5)
-                        FireBlob(player.position.x, player.position.y, max(5, afterburn_stacks * level), blob_lifetime)
+                        blob_lifetime   = 2.0 + afterburn_stacks * 1.0
+                        FireBlob(player.position.x, player.position.y, afterburn_stacks * 5, blob_lifetime)
                 else:
                     afterburn_timer = 0.0
 
@@ -463,6 +483,16 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         dist = e.position.distance_to(v.position)
                         if 0 < dist < v.pull_radius:
                             e.velocity += (v.position - e.position).normalize() * (1 - dist / v.pull_radius) * 280 * dt
+                for orb in list(xp_orbs):
+                    if orb.alive():
+                        dist = orb.position.distance_to(v.position)
+                        if 0 < dist < v.pull_radius:
+                            orb.velocity += (v.position - orb.position).normalize() * (1 - dist / v.pull_radius) * 320 * dt
+                for star in list(xp_stars):
+                    if star.alive():
+                        dist = star.position.distance_to(v.position)
+                        if 0 < dist < v.pull_radius:
+                            star.position += (v.position - star.position).normalize() * (1 - dist / v.pull_radius) * 160 * dt
                 if v.damage_timer >= 1.0:
                     v.damage_timer -= 1.0
                     vdmg = int(v.damage_per_second)
@@ -618,6 +648,26 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             for u in updatable:
                 u.update(dt)
 
+            if boss_intro_active:
+                boss_intro_timer += dt
+                FLEE_SPEED = 80
+                OFFSCREEN  = 150
+                center     = pygame.Vector2(cx, cy)
+                for a in list(asteroids):
+                    if a.alive():
+                        d = a.position - center
+                        a.velocity = (d.normalize() if d.length() > 0 else pygame.Vector2(1, 0)) * FLEE_SPEED
+                        if (a.position.x < -OFFSCREEN or a.position.x > SCREEN_WIDTH + OFFSCREEN or
+                                a.position.y < -OFFSCREEN or a.position.y > SCREEN_HEIGHT + OFFSCREEN):
+                            a.kill()
+                for e in list(enemies):
+                    if e.alive():
+                        d = e.position - center
+                        e.velocity = (d.normalize() if d.length() > 0 else pygame.Vector2(1, 0)) * FLEE_SPEED
+                        if (e.position.x < -OFFSCREEN or e.position.x > SCREEN_WIDTH + OFFSCREEN or
+                                e.position.y < -OFFSCREEN or e.position.y > SCREEN_HEIGHT + OFFSCREEN):
+                            e.kill()
+
             if ricochet_stacks > 0 and player.just_fired:
                 for s in shots:
                     if s not in shots_before_update:
@@ -710,7 +760,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         break
 
             # enemy spawn
-            if level >= 2:
+            if level >= 2 and not boss_intro_active:
                 enemy_spawn_timer += dt
                 if enemy_spawn_timer >= enemy_spawn_rate:
                     enemy_spawn_timer = 0.0
@@ -727,15 +777,16 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     e.velocity = toward_center * e.velocity.length()
 
             # xp star random spawn
-            xp_star_timer += dt
-            if xp_star_timer >= 10.0:
-                xp_star_timer = 0.0
-                if random.random() < 0.5:
-                    XPStar()
+            if not boss_intro_active:
+                xp_star_timer += dt
+                if xp_star_timer >= 10.0:
+                    xp_star_timer = 0.0
+                    if random.random() < 0.5:
+                        XPStar()
 
             # xp star pickup
             for star in list(xp_stars):
-                if star.position.distance_to(player.position) < player.radius + star.radius:
+                if star.position.distance_to(player.position) < player.radius + star.pickup_radius:
                     star.kill()
                     award_xp(XP_STAR_VALUE)
 
@@ -822,6 +873,14 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                              (int(laser_origin.x), int(laser_origin.y)),
                              (int(end.x), int(end.y)), core_w)
             game_surf.blit(laser_surf, (0, 0))
+
+        if boss_intro_active and int(boss_intro_timer * 2) % 2 == 0:
+            if boss_excl_image is not None:
+                game_surf.blit(boss_excl_image,
+                               boss_excl_image.get_rect(center=(cx, cy)))
+            else:
+                et = boss_excl_font.render("!", True, (255, 50, 0))
+                game_surf.blit(et, et.get_rect(center=(cx, cy)))
 
         if lives == 1:
             pulse = (math.sin(game_time * 2.5) + 1) / 2
