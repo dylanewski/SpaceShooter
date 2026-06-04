@@ -20,8 +20,9 @@ from ..entities.particle import Particle
 from ..entities.player import Player
 from ..entities.missile import Missile
 from ..entities.shot import Shot
-from ..entities.vortex import Vortex, VORTEX_PULL_RADIUS
+from ..entities.vortex import Vortex, VORTEX_PULL_RADIUS, VORTEX_LIFETIME
 from ..entities.xporb import XPOrb
+from ..entities.xpstar import XPStar, XP_STAR_VALUE
 
 from . import upgrade
 
@@ -92,7 +93,8 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     laser_surf    = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     danger_surf   = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     exp_surf      = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-    danger_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 80)
+    danger_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 36)
+    icon_font     = pygame.font.Font("assets/fonts/Symtext.ttf", 11)
 
     _skull_raw   = pygame.image.load("assets/images/game/Skull Ui.png").convert_alpha()
     _skull_size  = 34
@@ -120,6 +122,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     enemies    = pygame.sprite.Group()
     shots      = pygame.sprite.Group()
     xp_orbs    = pygame.sprite.Group()
+    xp_stars   = pygame.sprite.Group()
     fire_blobs = pygame.sprite.Group()
     vortexes   = pygame.sprite.Group()
     missiles   = pygame.sprite.Group()
@@ -130,6 +133,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     AsteroidField.containers = (updatable,)
     Shot.containers          = (updatable, drawable, shots)
     XPOrb.containers         = (updatable, drawable, xp_orbs)
+    XPStar.containers        = (updatable, drawable, xp_stars)
     Particle.containers      = (updatable, particles)
     FireBlob.containers      = (updatable, fire_blobs)
     Vortex.containers        = (updatable, vortexes)
@@ -146,10 +150,16 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     game_time    = 0.0
     shake_timer  = 0.0
 
+    death_active   = False
+    death_timer    = 0.0
+    death_pos      = None
+    DEATH_DURATION = 1.6
+
     xp               = 0
     level            = 1
     xp_to_next       = 7
     level_up_pending = False
+    xp_visual        = 0.0
 
     lives            = MAX_LIVES
     life_regen_time  = LIFE_REGEN_TIME
@@ -211,6 +221,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     particle_timer    = 0.0
     enemy_spawn_rate  = ENEMY_SPAWN_RATE_START
     enemy_spawn_timer = 0.0
+    xp_star_timer     = 0.0
 
     # --- nested helpers ---
 
@@ -245,7 +256,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         elif name == "XP Generator":
             xp_multiplier *= 1.1
         elif name == "Bigger Bullets":
-            player.shot_radius = int(player.shot_radius * 1.3)
+            player.shot_radius = int(player.shot_radius * 1.5)
         elif name == "Speed Boost":
             player.speed *= 1.2
         elif name == "Quick Regen":
@@ -311,6 +322,37 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
         game_surf.fill("black")
 
+        # --- death animation ---
+        if death_active and death_pos is not None:
+            dt          = clock.tick(60) / 1000
+            death_timer += dt
+            for p in list(particles):
+                p.update(dt)
+            for d in drawable:
+                d.draw(game_surf)
+            for p in particles:
+                p.draw(game_surf)
+            for delay, max_r, color in [
+                (0.00, 130, (255,  60,  0)),
+                (0.12,  90, (255, 180,  0)),
+                (0.25,  55, (255, 255, 180)),
+            ]:
+                ring_t = max(0.0, death_timer - delay)
+                if ring_t > 0:
+                    rt    = min(1.0, ring_t / 0.55)
+                    r     = max(1, int(max_r * rt))
+                    alpha = int(255 * (1 - rt))
+                    exp_surf.fill((0, 0, 0, 0))
+                    pygame.draw.circle(exp_surf, (*color, alpha),
+                                       (int(death_pos.x), int(death_pos.y)), r, 4)
+                    game_surf.blit(exp_surf, (0, 0))
+            screen.fill("black")
+            screen.blit(game_surf, (0, 0))
+            pygame.display.flip()
+            if death_timer >= DEATH_DURATION:
+                return "game_over", score
+            continue
+
         # --- update (skipped while paused) ---
         if not paused:
             dt        = clock.tick(60) / 1000
@@ -327,6 +369,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             if score_timer >= 1.0:
                 score_timer -= 1.0
                 score += 1
+
+            target_frac = min(1.0, xp / xp_to_next)
+            if xp_visual > target_frac + 0.05:
+                xp_visual = 0.0
+            xp_visual = min(target_frac, xp_visual + dt * 0.6)
 
             # life regen
             if lives < MAX_LIVES:
@@ -371,7 +418,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
             # afterburn fire trail
             if afterburn_stacks > 0:
-                if player.is_thrusting and player.velocity.length() >= player.speed * 0.9:
+                if player.is_thrusting:
                     afterburn_timer += dt
                     spawn_interval = 0.12 / (1.0 + (afterburn_stacks - 1) * 0.3)
                     if afterburn_timer >= spawn_interval and len(fire_blobs) < afterburn_stacks * 8:
@@ -391,16 +438,19 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
             for v in list(vortexes):
                 if not v.is_vortexing:
-                    TRAVEL_HIT_R = 18
-                    for a in list(asteroids):
-                        if a.alive() and v.position.distance_to(a.position) < a.radius + TRAVEL_HIT_R:
-                            v.anchor()
-                            break
-                    if not v.is_vortexing:
-                        for e in list(enemies):
-                            if e.alive() and v.position.distance_to(e.position) < e.radius + TRAVEL_HIT_R:
+                    TRAVEL_HIT_R    = 18
+                    MIN_TRAVEL_TIME = 0.7
+                    has_traveled    = (VORTEX_LIFETIME - v.lifetime) >= MIN_TRAVEL_TIME
+                    if has_traveled:
+                        for a in list(asteroids):
+                            if a.alive() and v.position.distance_to(a.position) < a.radius + TRAVEL_HIT_R:
                                 v.anchor()
                                 break
+                        if not v.is_vortexing:
+                            for e in list(enemies):
+                                if e.alive() and v.position.distance_to(e.position) < e.radius + TRAVEL_HIT_R:
+                                    v.anchor()
+                                    break
                 if not v.is_vortexing:
                     continue
                 for a in list(asteroids):
@@ -431,15 +481,19 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     missile_timer  = 0.0
                     missile_count  = missile_stacks * 3
                     targets = sorted(
-                        [t for t in list(asteroids) + list(enemies) if t.alive()],
+                        [t for t in list(asteroids) + list(enemies)
+                         if t.alive()
+                         and 0 <= t.position.x <= SCREEN_WIDTH
+                         and 0 <= t.position.y <= SCREEN_HEIGHT],
                         key=lambda t: t.position.distance_to(player.position)
                     )
                     wing = pygame.Vector2(0, 1).rotate(player.rotation + 90)
                     side = random.choice([-1, 1])
                     missile_queue.clear()
-                    for i in range(missile_count):
-                        if targets:
-                            missile_queue.append((side, targets[i % len(targets)]))
+                    if targets:
+                        nearest = targets[0]
+                        for _ in range(missile_count):
+                            missile_queue.append((side, nearest))
                             side = -side
                     missile_launch_timer = 0.0
 
@@ -672,6 +726,19 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     toward_center = (pygame.Vector2(cx, cy) - edge).normalize()
                     e.velocity = toward_center * e.velocity.length()
 
+            # xp star random spawn
+            xp_star_timer += dt
+            if xp_star_timer >= 10.0:
+                xp_star_timer = 0.0
+                if random.random() < 0.5:
+                    XPStar()
+
+            # xp star pickup
+            for star in list(xp_stars):
+                if star.position.distance_to(player.position) < player.radius + star.radius:
+                    star.kill()
+                    award_xp(XP_STAR_VALUE)
+
             # xp orb attraction + collection
             for orb in list(xp_orbs):
                 dist = orb.position.distance_to(player.position)
@@ -768,11 +835,43 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             game_surf.blit(danger_surf, (0, 0))
             if int(game_time * 2) % 2 == 0:
                 dtxt = danger_font.render("DANGER", True, (220, 0, 0))
-                game_surf.blit(dtxt, dtxt.get_rect(center=(cx, SCREEN_HEIGHT // 2)))
+                game_surf.blit(dtxt, dtxt.get_rect(center=(cx, 72)))
 
         game_surf.blit(font.render(f"{score}", True, "white"), (10, 10))
-        draw_xp_bar(game_surf, font, cx, level, xp, xp_to_next)
+        draw_xp_bar(game_surf, font, cx, level, xp, xp_to_next, xp_visual)
         draw_lives(game_surf, lives, life_regen_timer / life_regen_time)
+
+        icon_items = []
+        if pulse_stacks > 0:
+            icon_items.append(("PW", pulse_timer >= pulse_cooldown,
+                                min(1.0, pulse_timer / pulse_cooldown)))
+        if shield_stacks > 0:
+            frac = 1.0 if shield_active else min(1.0, shield_recharge_timer / shield_recharge_time)
+            icon_items.append(("SH", shield_active, frac))
+        if vortex_stacks > 0:
+            icon_items.append(("VF", vortex_timer >= vortex_cooldown,
+                                min(1.0, vortex_timer / vortex_cooldown)))
+        if missile_stacks > 0:
+            m_ready = missile_timer >= missile_cooldown and len(missile_queue) == 0
+            icon_items.append(("MS", m_ready, min(1.0, missile_timer / missile_cooldown)))
+        if laser_stacks > 0:
+            icon_items.append(("LZ", laser_timer >= laser_cooldown,
+                                min(1.0, laser_timer / laser_cooldown)))
+        if plow_stacks > 0:
+            icon_items.append(("PL", plow_timer >= plow_cooldown,
+                                min(1.0, plow_timer / plow_cooldown)))
+        iw, ih, igap = 34, 34, 6
+        ix, iy = 12, 55
+        for lbl, ready, frac in icon_items:
+            fg = (210, 210, 210) if ready else (65, 65, 65)
+            pygame.draw.rect(game_surf, (20, 20, 20), (ix, iy, iw, ih))
+            if not ready:
+                fill_h = int(ih * frac)
+                pygame.draw.rect(game_surf, (50, 50, 50), (ix, iy + ih - fill_h, iw, fill_h))
+            pygame.draw.rect(game_surf, fg, (ix, iy, iw, ih), 2)
+            t = icon_font.render(lbl, True, fg)
+            game_surf.blit(t, t.get_rect(center=(ix + iw // 2, iy + ih // 2)))
+            iy += ih + igap
 
         bar_w     = 14
         bar_x     = SCREEN_WIDTH - 22
@@ -829,6 +928,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         life_regen_timer  = 0.0
                         shake_timer       = SHAKE_DURATION
                         if lives <= 0:
-                            return "game_over", score
-                        player.invincibility_timer = INVINCIBILITY_TIME
+                            death_active = True
+                            death_timer  = 0.0
+                            death_pos    = pygame.Vector2(player.position)
+                            player.kill()
+                            _spawn_explosion(death_pos.x, death_pos.y, 60)
+                        else:
+                            player.invincibility_timer = INVINCIBILITY_TIME
                     break
