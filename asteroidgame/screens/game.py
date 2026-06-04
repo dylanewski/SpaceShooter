@@ -6,6 +6,7 @@ from ..logger import log_state, log_event
 from ..player import Player
 from ..shot import Shot
 from ..ui import make_button, draw_button, draw_xp_bar
+from . import upgrade
 
 
 def run(screen, clock, font, big_font) -> tuple[str, int]:
@@ -35,6 +36,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     xp = 0
     level = 1
     xp_to_next = 25
+    level_up_pending = False
 
     while True:
         log_state()
@@ -78,6 +80,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                             xp -= xp_to_next
                             level += 1
                             xp_to_next = int(xp_to_next * 1.2)
+                            level_up_pending = True
         else:
             clock.tick(60)
 
@@ -87,6 +90,12 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         score_surface = font.render(f"Score: {score}", True, "white")
         screen.blit(score_surface, (10, 10))
         draw_xp_bar(screen, font, cx, level, xp, xp_to_next)
+
+        if level_up_pending:
+            level_up_pending = False
+            chosen = upgrade.run(screen, clock, font, big_font)
+            if chosen == "quit":
+                return "quit", score
 
         if paused:
             screen.blit(pause_overlay, (0, 0))

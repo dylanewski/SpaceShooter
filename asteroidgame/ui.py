@@ -24,5 +24,5 @@ def draw_xp_bar(screen, font, cx, level, xp, xp_to_next):
     pygame.draw.rect(screen, "white",        (bar_x, bar_y, fill,  BAR_H))
     pygame.draw.rect(screen, "white",        (bar_x, bar_y, BAR_W, BAR_H), LINE_WIDTH)
 
-    lvl_text = font.render(f"LVL {level}", True, "white")
+    lvl_text = font.render(f"{level}", True, "white")
     screen.blit(lvl_text, lvl_text.get_rect(midright=(bar_x - 10, bar_y + BAR_H // 2)))
