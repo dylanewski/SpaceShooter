@@ -1,8 +1,8 @@
 import pygame
 import random
-from asteroidgame.logger import log_event
+from ..logger import log_event
 from .circleshape import CircleShape
-from .constants import ASTEROID_MIN_RADIUS, ASTEROID_HITBOX_SCALE
+from ..constants import ASTEROID_MIN_RADIUS, ASTEROID_HITBOX_SCALE
 
 _base_images = []
 

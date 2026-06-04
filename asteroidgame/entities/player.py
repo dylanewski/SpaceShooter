@@ -1,6 +1,6 @@
 import pygame
 from .circleshape import CircleShape
-from .constants import *
+from ..constants import *
 from .shot import Shot
 
 class Player(CircleShape):
@@ -12,6 +12,7 @@ class Player(CircleShape):
         self.shot_radius = SHOT_RADIUS
         self.speed = PLAYER_SPEED
         self.invincibility_timer = 0.0
+        self.is_thrusting = False
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
         target = PLAYER_RADIUS * 2
         scale = target / max(raw.get_width(), raw.get_height())
@@ -39,10 +40,13 @@ class Player(CircleShape):
 
         if keys[pygame.K_w]:
             self.move(dt)
+            self.is_thrusting = True
         elif keys[pygame.K_s]:
             self.move(-dt)
+            self.is_thrusting = False
         else:
             self._decelerate(dt)
+            self.is_thrusting = False
 
         if keys[pygame.K_SPACE]:
             self.shoot()
@@ -68,6 +72,6 @@ class Player(CircleShape):
         self.shot_cooldown = self.shot_cooldown_time
         direction = pygame.Vector2(0, 1).rotate(self.rotation)
         shot = Shot(self.position.x, self.position.y, direction, self.shot_radius)
-        shot.velocity = direction * PLAYER_SHOT_SPEED
+        shot.velocity = direction * SHOT_SPEED
         return shot
         

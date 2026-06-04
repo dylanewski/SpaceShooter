@@ -1,15 +1,33 @@
 import random
+from collections import Counter
 import pygame
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, LINE_WIDTH
 
+RARITY_WEIGHTS = {
+    "common":    50,
+    "uncommon":  30,
+    "rare":      15,
+    "legendary": 5,
+}
+
+RARITY_COLORS = {
+    "common":    (255, 255, 255),
+    "uncommon":  (80, 200, 100),
+    "rare":      (80, 130, 255),
+    "legendary": (255, 160, 30),
+}
+
 UPGRADE_POOL = [
-    {"name": "Rapid Fire"},
-    {"name": "Power Shot"},
-    {"name": "Shield"},
-    {"name": "XP Generator"},
-    {"name": "Larger Artillery"},
-    {"name": "Speed Boost"},
-    {"name": "Quick Regen"},
+    {"name": "Rapid Fire",       "rarity": "common"},
+    {"name": "Power Shot",       "rarity": "common"},
+    {"name": "XP Generator",     "rarity": "common"},
+    {"name": "Larger Artillery", "rarity": "common"},
+    {"name": "Speed Boost",      "rarity": "common"},
+    {"name": "Quick Regen",      "rarity": "common"},
+    {"name": "Shield",           "rarity": "rare"},
+    {"name": "Pulse Wave",       "rarity": "uncommon"},
+    {"name": "Afterburn",        "rarity": "uncommon"},
+    {"name": "Vortex Field",     "rarity": "legendary"},
 ]
 
 _overlay = None
@@ -31,8 +49,27 @@ def _get_overlay():
     return _overlay
 
 
+def _weighted_sample(pool, k):
+    tier_counts = Counter(u["rarity"] for u in pool)
+    weights = [RARITY_WEIGHTS[u["rarity"]] / tier_counts[u["rarity"]] for u in pool]
+
+    chosen = []
+    available = list(zip(pool, weights))
+    for _ in range(min(k, len(available))):
+        total = sum(w for _, w in available)
+        r = random.uniform(0, total)
+        cumulative = 0
+        for i, (item, weight) in enumerate(available):
+            cumulative += weight
+            if r <= cumulative:
+                chosen.append(item)
+                available.pop(i)
+                break
+    return chosen
+
+
 def run(screen, clock, font, big_font, background) -> str:
-    choices = random.sample(UPGRADE_POOL, 3)
+    choices = _weighted_sample(UPGRADE_POOL, 3)
 
     CARD_W, CARD_H = 220, 230
     ICON_SIZE = 140
@@ -65,14 +102,16 @@ def run(screen, clock, font, big_font, background) -> str:
 
         for rect, upgrade in cards:
             hovering = rect.collidepoint(mouse_pos)
+            rarity_color = RARITY_COLORS[upgrade["rarity"]]
+
             pygame.draw.rect(screen, (70, 70, 70) if hovering else (30, 30, 30), rect)
-            pygame.draw.rect(screen, "white", rect, LINE_WIDTH)
+            pygame.draw.rect(screen, rarity_color, rect, LINE_WIDTH)
 
             icon_rect = pygame.Rect(rect.centerx - ICON_SIZE // 2, rect.top + 15, ICON_SIZE, ICON_SIZE)
             pygame.draw.rect(screen, (50, 50, 50), icon_rect)
-            pygame.draw.rect(screen, (100, 100, 100), icon_rect, LINE_WIDTH)
+            pygame.draw.rect(screen, rarity_color, icon_rect, LINE_WIDTH)
 
-            name = _get_name_font().render(upgrade["name"], True, "white")
+            name = _get_name_font().render(upgrade["name"], True, rarity_color)
             screen.blit(name, name.get_rect(center=(rect.centerx, rect.bottom - 22)))
 
         pygame.display.flip()

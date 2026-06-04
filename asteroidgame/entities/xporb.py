@@ -2,7 +2,7 @@ import math
 import random
 import pygame
 from .circleshape import CircleShape
-from .constants import XP_ORB_RADIUS, XP_ORB_LIFETIME
+from ..constants import XP_ORB_RADIUS, XP_ORB_LIFETIME
 
 
 class XPOrb(CircleShape):
