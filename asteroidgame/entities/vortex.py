@@ -20,7 +20,7 @@ class Vortex(pygame.sprite.Sprite):
         self.velocity          = direction * VORTEX_TRAVEL_SPEED
         self.lifetime          = VORTEX_LIFETIME
         self.pull_radius       = VORTEX_PULL_RADIUS
-        self.damage_per_second = float(level)
+        self.damage_per_second = float(max(15, level * 3))
         self.damage_timer      = 0.0
         self._angle            = 0.0
         self._anchored         = False

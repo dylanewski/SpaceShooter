@@ -91,10 +91,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     pulse_surf    = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     laser_surf    = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     danger_surf   = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    exp_surf      = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     danger_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 80)
 
     _skull_raw   = pygame.image.load("assets/images/game/Skull Ui.png").convert_alpha()
-    _skull_size  = 28
+    _skull_size  = 34
     skull_image  = pygame.transform.scale(_skull_raw, (_skull_size, _skull_size))
 
     SHIELD_R         = PLAYER_RADIUS + 10
@@ -174,7 +175,8 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
     homing_strength   = 0
     ricochet_stacks   = 0
-    explosive_stacks  = 0
+    explosive_stacks   = 0
+    explosion_visuals  = []   # list of [x, y, max_r, age]
     RICOCHET_RANGE    = 200
     EXPLOSION_RADIUS  = 80
 
@@ -234,7 +236,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         if name == "Rapid Fire":
             player.shot_cooldown_time *= 0.9
         elif name == "Higher Caliber Rounds":
-            shot_damage += 8
+            shot_damage += 6
         elif name == "Shield":
             shield_stacks += 1
             shield_recharge_time = 30.0 * (0.7 ** (shield_stacks - 1))
@@ -247,7 +249,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         elif name == "Speed Boost":
             player.speed *= 1.2
         elif name == "Quick Regen":
-            life_regen_time *= 2 / 3
+            life_regen_time *= 0.75
         elif name == "Pulse Wave":
             pulse_stacks += 1
             pulse_cooldown = max(2.0, 5.0 - (pulse_stacks - 1) * 0.5)
@@ -372,7 +374,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                 if player.is_thrusting and player.velocity.length() >= player.speed * 0.9:
                     afterburn_timer += dt
                     spawn_interval = 0.12 / (1.0 + (afterburn_stacks - 1) * 0.3)
-                    if afterburn_timer >= spawn_interval:
+                    if afterburn_timer >= spawn_interval and len(fire_blobs) < afterburn_stacks * 8:
                         afterburn_timer = 0.0
                         blob_lifetime   = 5.0 * (1.0 + (afterburn_stacks - 1) * 0.5)
                         FireBlob(player.position.x, player.position.y, max(5, afterburn_stacks * level), blob_lifetime)
@@ -437,17 +439,19 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     missile_queue.clear()
                     for i in range(missile_count):
                         if targets:
-                            spawn = player.position + wing * (side * 18)
-                            missile_queue.append((spawn.x, spawn.y, targets[i % len(targets)]))
+                            missile_queue.append((side, targets[i % len(targets)]))
                             side = -side
                     missile_launch_timer = 0.0
 
             if missile_queue:
                 missile_launch_timer -= dt
                 if missile_launch_timer <= 0:
-                    sx, sy, tgt = missile_queue.pop(0)
+                    ms, tgt = missile_queue.pop(0)
                     if tgt.alive():
-                        Missile(sx, sy, tgt)
+                        forward = pygame.Vector2(0, 1).rotate(player.rotation)
+                        wing    = pygame.Vector2(0, 1).rotate(player.rotation + 90)
+                        spawn   = player.position + wing * (ms * 18)
+                        Missile(spawn.x, spawn.y, tgt, launch_dir=forward, boost_time=0.4)
                     missile_launch_timer = 0.1
 
             for m in list(missiles):
@@ -475,7 +479,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     laser_visual_age = 0.0
                     laser_origin     = pygame.Vector2(player.position)
                     laser_direction  = pygame.Vector2(0, 1).rotate(player.rotation).normalize()
-                    laser_dmg        = max(15, 3 * level)
+                    laser_dmg        = max(25, 3 * level)
                     for a in list(asteroids):
                         if a.alive() and _ray_hits(laser_origin, laser_direction, a.position, a.radius):
                             if a.take_damage(laser_dmg):
@@ -574,7 +578,8 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         if explosive_stacks > 0 and not s.fragment:
                             exp_r = EXPLOSION_RADIUS + (explosive_stacks - 1) * 20
                             splash = max(5, shot_damage // 3) * explosive_stacks
-                            _spawn_explosion(s.position.x, s.position.y, exp_r // 3)
+                            _spawn_explosion(s.position.x, s.position.y, exp_r // 2)
+                            explosion_visuals.append([s.position.x, s.position.y, exp_r, 0.0])
                             for ta in list(asteroids):
                                 if ta.alive() and ta is not a and ta.position.distance_to(s.position) < exp_r:
                                     if ta.take_damage(splash):
@@ -610,7 +615,8 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         if explosive_stacks > 0 and not s.fragment:
                             exp_r = EXPLOSION_RADIUS + (explosive_stacks - 1) * 20
                             splash = max(5, shot_damage // 3) * explosive_stacks
-                            _spawn_explosion(s.position.x, s.position.y, exp_r // 3)
+                            _spawn_explosion(s.position.x, s.position.y, exp_r // 2)
+                            explosion_visuals.append([s.position.x, s.position.y, exp_r, 0.0])
                             for ta in list(asteroids):
                                 if ta.alive() and ta.position.distance_to(s.position) < exp_r:
                                     if ta.take_damage(splash):
@@ -711,6 +717,20 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             pygame.draw.circle(shield_surf, (100, 150, 255, alpha), shield_center, SHIELD_R, 3)
             game_surf.blit(shield_surf, shield_surf.get_rect(center=(int(player.position.x), int(player.position.y))))
 
+        next_exp = []
+        for ev in explosion_visuals:
+            ev[3] += dt
+            if ev[3] < 0.35:
+                next_exp.append(ev)
+                t     = ev[3] / 0.35
+                r     = max(1, int(ev[2] * t))
+                alpha = int(230 * (1 - t))
+                exp_surf.fill((0, 0, 0, 0))
+                pygame.draw.circle(exp_surf, (255, 130, 0, alpha),          (int(ev[0]), int(ev[1])), r, 4)
+                pygame.draw.circle(exp_surf, (255, 230, 80, min(255, alpha + 50)), (int(ev[0]), int(ev[1])), max(1, r - 5), 2)
+                game_surf.blit(exp_surf, (0, 0))
+        explosion_visuals[:] = next_exp
+
         if pulse_visual_age < 1.0:
             pulse_visual_age += dt / 0.5
             t     = min(1.0, pulse_visual_age)
@@ -756,7 +776,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
         bar_w     = 14
         bar_x     = SCREEN_WIDTH - 22
-        bar_top   = int(SCREEN_HEIGHT * 0.4)
+        bar_top   = int(SCREEN_HEIGHT * 0.2)
         bar_h     = int((SCREEN_HEIGHT - 30) * 0.7)
         bar_bot   = bar_top + bar_h
         fill_frac = min(1.0, game_time / 300.0)
