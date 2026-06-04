@@ -4,10 +4,10 @@ import pygame
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, LINE_WIDTH
 
 RARITY_WEIGHTS = {
-    "common":    50,
-    "uncommon":  30,
-    "rare":      15,
-    "legendary": 5,
+    "common":    70,
+    "uncommon":  18,
+    "rare":      9,
+    "legendary": 1,
 }
 
 RARITY_COLORS = {
@@ -19,15 +19,22 @@ RARITY_COLORS = {
 
 UPGRADE_POOL = [
     {"name": "Rapid Fire",       "rarity": "common"},
-    {"name": "Power Shot",       "rarity": "common"},
+    {"name": "Higher Caliber Rounds", "rarity": "common"},
     {"name": "XP Generator",     "rarity": "common"},
-    {"name": "Larger Artillery", "rarity": "common"},
+    {"name": "Bigger Bullets",   "rarity": "common"},
     {"name": "Speed Boost",      "rarity": "common"},
     {"name": "Quick Regen",      "rarity": "common"},
     {"name": "Shield",           "rarity": "rare"},
+    {"name": "Homing Shots",     "rarity": "rare"},
+    {"name": "Missile Salvo",    "rarity": "rare"},
+    {"name": "Laser Beam",       "rarity": "rare"},
+    {"name": "Ricochet",         "rarity": "rare"},
+    {"name": "Explosive Rounds", "rarity": "rare"},
     {"name": "Pulse Wave",       "rarity": "uncommon"},
     {"name": "Afterburn",        "rarity": "uncommon"},
+    {"name": "Plow",             "rarity": "uncommon"},
     {"name": "Vortex Field",     "rarity": "legendary"},
+    {"name": "Little Buddy",     "rarity": "legendary"},
 ]
 
 _overlay = None

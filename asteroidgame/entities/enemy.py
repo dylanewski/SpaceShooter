@@ -4,10 +4,11 @@ import pygame
 from .circleshape import CircleShape
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT
 
-ENEMY_RADIUS           = 66
-ENEMY_SPEED            = 35
+ENEMY_RADIUS           = 110
+ENEMY_HITBOX_RADIUS    = 55
+ENEMY_SPEED            = 22
 ENEMY_MAX_HEALTH       = 50
-ENEMY_SPAWN_RATE_START = 8.0
+ENEMY_SPAWN_RATE_START = 15.0
 ENEMY_SPAWN_RATE_MIN   = 2.0
 ENEMY_SPAWN_RATE_STEP  = 0.4
 
@@ -24,7 +25,8 @@ def _get_base_images():
 
 class Enemy(CircleShape):
     def __init__(self, x, y):
-        super().__init__(x, y, ENEMY_RADIUS)
+        super().__init__(x, y, ENEMY_HITBOX_RADIUS)
+        self._full_radius = ENEMY_RADIUS
         base = random.choice(_get_base_images())
         target = ENEMY_RADIUS * 2
         scale = target / max(base.get_width(), base.get_height())

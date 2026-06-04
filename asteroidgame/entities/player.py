@@ -13,6 +13,7 @@ class Player(CircleShape):
         self.speed = PLAYER_SPEED
         self.invincibility_timer = 0.0
         self.is_thrusting = False
+        self.just_fired   = False
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
         target = PLAYER_RADIUS * 2
         scale = target / max(raw.get_width(), raw.get_height())
@@ -29,6 +30,7 @@ class Player(CircleShape):
         self.rotation += PLAYER_TURN_SPEED * dt
 
     def update(self, dt: float) -> None:
+        self.just_fired = False
         self.invincibility_timer = max(0.0, self.invincibility_timer - dt)
         self.shot_cooldown = max(0.0, self.shot_cooldown - dt)
         keys = pygame.key.get_pressed()
@@ -70,6 +72,7 @@ class Player(CircleShape):
         if self.shot_cooldown > 0:
             return None
         self.shot_cooldown = self.shot_cooldown_time
+        self.just_fired    = True
         direction = pygame.Vector2(0, 1).rotate(self.rotation)
         shot = Shot(self.position.x, self.position.y, direction, self.shot_radius)
         shot.velocity = direction * SHOT_SPEED

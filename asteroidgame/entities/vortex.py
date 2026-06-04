@@ -1,10 +1,10 @@
 import math
 import pygame
 
-VORTEX_LIFETIME    = 10.0
-VORTEX_TRAVEL_TIME = 2.0
-VORTEX_TRAVEL_SPEED = 340
-VORTEX_PULL_RADIUS = 200
+VORTEX_LIFETIME     = 10.0
+VORTEX_TRAVEL_TIME  = 0.8
+VORTEX_TRAVEL_SPEED = 220
+VORTEX_PULL_RADIUS  = 200
 
 
 class Vortex(pygame.sprite.Sprite):
@@ -23,14 +23,19 @@ class Vortex(pygame.sprite.Sprite):
         self.damage_per_second = float(level)
         self.damage_timer      = 0.0
         self._angle            = 0.0
+        self._anchored         = False
 
     @property
     def is_vortexing(self):
-        return self.lifetime <= VORTEX_LIFETIME - VORTEX_TRAVEL_TIME
+        return self._anchored or self.lifetime <= VORTEX_LIFETIME - VORTEX_TRAVEL_TIME
+
+    def anchor(self):
+        self._anchored = True
+        self.velocity  = pygame.Vector2(0, 0)
 
     def update(self, dt):
-        self.lifetime  -= dt
-        self._angle    += 150 * dt
+        self.lifetime -= dt
+        self._angle   += 150 * dt
         if not self.is_vortexing:
             self.position += self.velocity * dt
         else:
