@@ -9,6 +9,7 @@ UPGRADE_POOL = [
     {"name": "XP Generator"},
     {"name": "Larger Artillery"},
     {"name": "Speed Boost"},
+    {"name": "Quick Regen"},
 ]
 
 _overlay = None

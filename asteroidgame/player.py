@@ -11,12 +11,15 @@ class Player(CircleShape):
         self.shot_cooldown_time = PLAYER_SHOT_COOLDOWN_SECONDS
         self.shot_radius = SHOT_RADIUS
         self.speed = PLAYER_SPEED
+        self.invincibility_timer = 0.0
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
         target = PLAYER_RADIUS * 2
         scale = target / max(raw.get_width(), raw.get_height())
         self._image = pygame.transform.scale(raw, (int(raw.get_width() * scale), int(raw.get_height() * scale)))
 
     def draw(self, screen):
+        if self.invincibility_timer > 0 and int(self.invincibility_timer * 8) % 2 == 0:
+            return
         rotated = pygame.transform.rotate(self._image, -self.rotation + 180)
         rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
         screen.blit(rotated, rect)
@@ -25,6 +28,7 @@ class Player(CircleShape):
         self.rotation += PLAYER_TURN_SPEED * dt
 
     def update(self, dt: float) -> None:
+        self.invincibility_timer = max(0.0, self.invincibility_timer - dt)
         self.shot_cooldown = max(0.0, self.shot_cooldown - dt)
         keys = pygame.key.get_pressed()
 
@@ -32,18 +36,31 @@ class Player(CircleShape):
             self.rotate(-dt)
         if keys[pygame.K_d]:
             self.rotate(dt)
+
         if keys[pygame.K_w]:
             self.move(dt)
-        if keys[pygame.K_s]:
+        elif keys[pygame.K_s]:
             self.move(-dt)
+        else:
+            self._decelerate(dt)
+
         if keys[pygame.K_SPACE]:
             self.shoot()
 
+        self.position += self.velocity * dt
+
     def move(self, dt: float) -> None:
-        unit_vector = pygame.Vector2(0, 1)
-        rotated_vector = unit_vector.rotate(self.rotation)
-        rotated_with_speed_vector = rotated_vector * self.speed * dt
-        self.position += rotated_with_speed_vector
+        direction = pygame.Vector2(0, 1).rotate(self.rotation)
+        self.velocity += direction * (self.speed * 2) * dt
+        if self.velocity.length() > self.speed:
+            self.velocity = self.velocity.normalize() * self.speed
+
+    def _decelerate(self, dt: float) -> None:
+        decel = self.speed * 2 * dt
+        if self.velocity.length() <= decel:
+            self.velocity = pygame.Vector2(0, 0)
+        else:
+            self.velocity -= self.velocity.normalize() * decel
     
     def shoot(self):
         if self.shot_cooldown > 0:

@@ -1,5 +1,5 @@
 import pygame
-from .constants import LINE_WIDTH
+from .constants import LINE_WIDTH, SCREEN_WIDTH, MAX_LIVES
 
 
 def make_button(center, width=220, height=60):
@@ -26,3 +26,23 @@ def draw_xp_bar(screen, font, cx, level, xp, xp_to_next):
 
     lvl_text = font.render(f"{level}", True, "white")
     screen.blit(lvl_text, lvl_text.get_rect(midright=(bar_x - 10, bar_y + BAR_H // 2)))
+
+
+def draw_lives(screen, lives, regen_progress):
+    ICON_R = 8
+    GAP    = 28
+    y      = 19
+    start_x = SCREEN_WIDTH - 20 - (MAX_LIVES - 1) * GAP
+
+    for i in range(MAX_LIVES):
+        x = start_x + i * GAP
+        if i < lives:
+            pygame.draw.circle(screen, "white", (x, y), ICON_R)
+        else:
+            pygame.draw.circle(screen, (60, 60, 60), (x, y), ICON_R)
+            pygame.draw.circle(screen, "white",      (x, y), ICON_R, LINE_WIDTH)
+            if i == lives:
+                bar_w  = ICON_R * 2
+                filled = int(bar_w * regen_progress)
+                pygame.draw.rect(screen, (50, 50, 50),  (x - ICON_R, y + ICON_R + 4, bar_w,   3))
+                pygame.draw.rect(screen, "white",        (x - ICON_R, y + ICON_R + 4, filled, 3))
