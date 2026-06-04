@@ -2,7 +2,7 @@ import pygame
 import random
 from asteroidgame.logger import log_event
 from .circleshape import CircleShape
-from .constants import ASTEROID_MIN_RADIUS
+from .constants import ASTEROID_MIN_RADIUS, ASTEROID_HITBOX_SCALE
 
 _base_images = []
 
@@ -16,7 +16,8 @@ def _get_base_images():
 
 class Asteroid(CircleShape):
     def __init__(self, x: float, y: float, radius: float) -> None:
-        super().__init__(x, y, radius)
+        super().__init__(x, y, radius * ASTEROID_HITBOX_SCALE)
+        self._full_radius = radius
         base = random.choice(_get_base_images())
         target = radius * 2
         scale = target / max(base.get_width(), base.get_height())
@@ -26,15 +27,14 @@ class Asteroid(CircleShape):
 
     def draw(self, screen):
         rotated = pygame.transform.rotate(self._image, self._angle)
-        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
-        screen.blit(rotated, rect)
+        screen.blit(rotated, rotated.get_rect(center=(int(self.position.x), int(self.position.y))))
 
     def update(self, dt: float) -> None:
         self.position += self.velocity * dt
         self._angle += self._rotation_speed * dt
 
     def split(self) -> list["Asteroid"]:
-        if self.radius <= ASTEROID_MIN_RADIUS:
+        if self._full_radius <= ASTEROID_MIN_RADIUS:
             self.kill()
             return []
 
@@ -42,12 +42,12 @@ class Asteroid(CircleShape):
         angle = random.uniform(20, 50)
         velocity1 = self.velocity.rotate(angle)
         velocity2 = self.velocity.rotate(-angle)
-        new_radius = self.radius - ASTEROID_MIN_RADIUS
+        new_radius = self._full_radius - ASTEROID_MIN_RADIUS
 
         direction1 = velocity1.normalize() if velocity1.length() else pygame.Vector2(1, 0)
         direction2 = velocity2.normalize() if velocity2.length() else pygame.Vector2(1, 0)
-        position1 = self.position + direction1 * self.radius
-        position2 = self.position + direction2 * self.radius
+        position1 = self.position + direction1 * self._full_radius
+        position2 = self.position + direction2 * self._full_radius
 
         asteroid1 = Asteroid(position1.x, position1.y, new_radius)
         asteroid2 = Asteroid(position2.x, position2.y, new_radius)

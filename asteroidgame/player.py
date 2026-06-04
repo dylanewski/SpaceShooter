@@ -8,6 +8,9 @@ class Player(CircleShape):
         super().__init__(x, y, PLAYER_HITBOX_RADIUS)
         self.rotation = 0
         self.shot_cooldown = 0.0
+        self.shot_cooldown_time = PLAYER_SHOT_COOLDOWN_SECONDS
+        self.shot_radius = SHOT_RADIUS
+        self.speed = PLAYER_SPEED
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
         target = PLAYER_RADIUS * 2
         scale = target / max(raw.get_width(), raw.get_height())
@@ -39,15 +42,15 @@ class Player(CircleShape):
     def move(self, dt: float) -> None:
         unit_vector = pygame.Vector2(0, 1)
         rotated_vector = unit_vector.rotate(self.rotation)
-        rotated_with_speed_vector = rotated_vector * PLAYER_SPEED * dt
+        rotated_with_speed_vector = rotated_vector * self.speed * dt
         self.position += rotated_with_speed_vector
     
     def shoot(self):
         if self.shot_cooldown > 0:
             return None
-        self.shot_cooldown = PLAYER_SHOT_COOLDOWN_SECONDS
+        self.shot_cooldown = self.shot_cooldown_time
         direction = pygame.Vector2(0, 1).rotate(self.rotation)
-        shot = Shot(self.position.x, self.position.y, direction)
+        shot = Shot(self.position.x, self.position.y, direction, self.shot_radius)
         shot.velocity = direction * PLAYER_SHOT_SPEED
         return shot
         
