@@ -7,8 +7,8 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
-    font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 36)
-    big_font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 72)
+    font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 36)
+    big_font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 72)
 
     state = "home"
     score = 0

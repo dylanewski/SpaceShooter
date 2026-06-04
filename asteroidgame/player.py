@@ -5,7 +5,7 @@ from .shot import Shot
 
 class Player(CircleShape):
     def __init__(self, x, y):
-        super().__init__(x, y, PLAYER_RADIUS)
+        super().__init__(x, y, PLAYER_HITBOX_RADIUS)
         self.rotation = 0
         self.shot_cooldown = 0.0
         raw = pygame.image.load("assets/images/game/ship.png").convert_alpha()
