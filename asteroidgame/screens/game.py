@@ -32,12 +32,15 @@ def _spawn_explosion(x, y, radius):
                  radius_range=(1.0, min(4.0, radius / 8)))
 
 
-def _apply_damage(asteroid, damage):
-    children = asteroid.split()
-    if damage > 1:
-        for child in children:
-            if child.alive():
-                _apply_damage(child, damage - 1)
+def _spawn_hit_effect(x, y):
+    for _ in range(5):
+        angle = random.uniform(0, 360)
+        speed = random.uniform(100, 220)
+        vel = pygame.Vector2(0, 1).rotate(angle) * speed / 0.4
+        Particle(x, y, vel,
+                 color=(255, 220, 100),
+                 lifetime_range=(0.1, 0.25),
+                 radius_range=(1.0, 2.5))
 
 
 def run(screen, clock, font, big_font) -> tuple[str, int]:
@@ -69,7 +72,6 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     XPOrb.containers         = (updatable, drawable, xp_orbs)
     Particle.containers      = (updatable, particles)
     asteroid_field = AsteroidField()
-    asteroid_field.spawn_rate = ASTEROID_SPAWN_RATE_SECONDS * 4
     player = Player(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
 
     score        = 0
@@ -78,16 +80,17 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     paused       = False
     xp           = 0
     level        = 1
-    xp_to_next   = 25
+    xp_to_next   = 12
     level_up_pending = False
 
+    game_time         = 0.0
     enemy_spawn_rate  = ENEMY_SPAWN_RATE_START
     enemy_spawn_timer = 0.0
     lives            = MAX_LIVES
     life_regen_time  = LIFE_REGEN_TIME
     life_regen_timer = 0.0
     particle_timer  = 0.0
-    shot_damage     = 1
+    shot_damage     = 10
     xp_multiplier  = 1.0
     shield_stacks  = 0
     shield_active  = False
@@ -103,14 +106,6 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             level += 1
             xp_to_next = int(xp_to_next * 1.2)
             level_up_pending = True
-            asteroid_field.spawn_rate = max(
-                ASTEROID_SPAWN_RATE_SECONDS / 2,
-                asteroid_field.spawn_rate - 0.2,
-            )
-            enemy_spawn_rate = max(
-                ENEMY_SPAWN_RATE_MIN,
-                enemy_spawn_rate - ENEMY_SPAWN_RATE_STEP,
-            )
 
     def apply_upgrade(name):
         nonlocal shot_damage, xp_multiplier, life_regen_time
@@ -118,7 +113,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         if name == "Rapid Fire":
             player.shot_cooldown_time *= 0.9
         elif name == "Power Shot":
-            shot_damage += 1
+            shot_damage += 5
         elif name == "Shield":
             shield_stacks += 1
             shield_recharge_time = 30.0 * (0.7 ** (shield_stacks - 1))
@@ -157,6 +152,13 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
 
         if not paused:
             dt = clock.tick(60) / 1000
+            game_time += dt
+
+            _RAMP = 300.0
+            _t = min(1.0, game_time / _RAMP)
+            asteroid_field.spawn_rate = ASTEROID_SPAWN_RATE_SECONDS * 4 + (ASTEROID_SPAWN_RATE_SECONDS / 2 - ASTEROID_SPAWN_RATE_SECONDS * 4) * _t
+            enemy_spawn_rate = ENEMY_SPAWN_RATE_START + (ENEMY_SPAWN_RATE_MIN - ENEMY_SPAWN_RATE_START) * _t
+
             score_timer += dt
             if score_timer >= 1.0:
                 score_timer -= 1.0
@@ -191,12 +193,15 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                 for s in list(shots):
                     if a.alive() and s.alive() and a.collides_with(s):
                         log_event("asteroid_shot")
-                        orb_pos = pygame.Vector2(a.position)
-                        _spawn_explosion(orb_pos.x, orb_pos.y, a._full_radius)
-                        _apply_damage(a, shot_damage)
                         s.kill()
-                        score += 1
-                        XPOrb(orb_pos.x, orb_pos.y)
+                        if a.take_damage(shot_damage):
+                            pos = pygame.Vector2(a.position)
+                            _spawn_explosion(pos.x, pos.y, a._full_radius)
+                            XPOrb(pos.x, pos.y)
+                            a.split()
+                            score += 1
+                        else:
+                            _spawn_hit_effect(a.position.x, a.position.y)
 
             if level >= 2:
                 enemy_spawn_timer += dt
@@ -209,16 +214,20 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, -margin),
                         pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, SCREEN_HEIGHT + margin),
                     ])
-                    Enemy(edge.x, edge.y, pygame.Vector2(player.position))
+                    Enemy(edge.x, edge.y)
 
             for e in list(enemies):
                 for s in list(shots):
                     if e.alive() and s.alive() and e.collides_with(s):
-                        _spawn_explosion(e.position.x, e.position.y, e.radius)
-                        XPOrb(e.position.x, e.position.y)
-                        e.kill()
                         s.kill()
-                        score += 1
+                        if e.take_damage(shot_damage):
+                            _spawn_explosion(e.position.x, e.position.y, e.radius)
+                            for _ in range(5):
+                                XPOrb(e.position.x, e.position.y)
+                            e.kill()
+                            score += 1
+                        else:
+                            _spawn_hit_effect(e.position.x, e.position.y)
 
             if shield_active:
                 for a in list(asteroids):

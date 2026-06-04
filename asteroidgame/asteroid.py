@@ -24,6 +24,7 @@ class Asteroid(CircleShape):
         self._image = pygame.transform.scale(base, (int(base.get_width() * scale), int(base.get_height() * scale)))
         self._angle = random.uniform(0, 360)
         self._rotation_speed = random.uniform(-50, 50)
+        self.health = 10
 
     def draw(self, screen):
         rotated = pygame.transform.rotate(self._image, self._angle)
@@ -32,6 +33,10 @@ class Asteroid(CircleShape):
     def update(self, dt: float) -> None:
         self.position += self.velocity * dt
         self._angle += self._rotation_speed * dt
+
+    def take_damage(self, amount: int) -> bool:
+        self.health -= amount
+        return self.health <= 0
 
     def split(self) -> list["Asteroid"]:
         if self._full_radius <= ASTEROID_MIN_RADIUS:
