@@ -91,13 +91,18 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     pulse_surf    = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     laser_surf    = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     danger_surf   = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    danger_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 80)
+
+    _skull_raw   = pygame.image.load("assets/images/game/Skull Ui.png").convert_alpha()
+    _skull_size  = 28
+    skull_image  = pygame.transform.scale(_skull_raw, (_skull_size, _skull_size))
 
     SHIELD_R         = PLAYER_RADIUS + 10
     shield_surf_size = SHIELD_R * 2 + 6
     shield_surf      = pygame.Surface((shield_surf_size, shield_surf_size), pygame.SRCALPHA)
     shield_center    = (shield_surf_size // 2, shield_surf_size // 2)
 
-    PULSE_RADIUS   = 220
+    PULSE_RADIUS   = 150
     SHAKE_DURATION = 0.3
     SHAKE_INTENSITY = 8
 
@@ -173,9 +178,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     RICOCHET_RANGE    = 200
     EXPLOSION_RADIUS  = 80
 
-    plow_stacks   = 0
-    plow_cooldown = 2.0
-    plow_timer    = 0.0
+    plow_stacks            = 0
+    plow_cooldown          = 2.0
+    plow_timer             = 0.0
+    plow_invincibility_timer = 0.0
+    plow_image             = None
 
     BUDDY_DISTANCE = 65
     buddy_stacks = 0
@@ -185,9 +192,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     vortex_cooldown = 15.0
     vortex_timer    = 0.0
 
-    missile_stacks   = 0
-    missile_cooldown = 6.0
-    missile_timer    = 0.0
+    missile_stacks        = 1
+    missile_cooldown      = 6.0
+    missile_timer         = 0.0
+    missile_queue         = []
+    missile_launch_timer  = 0.0
 
     laser_stacks     = 0
     laser_cooldown   = 8.0
@@ -217,7 +226,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         nonlocal shield_stacks, shield_active, shield_age, shield_recharge_time
         nonlocal pulse_stacks, pulse_cooldown
         nonlocal afterburn_stacks, homing_strength, ricochet_stacks, explosive_stacks
-        nonlocal plow_stacks, plow_cooldown
+        nonlocal plow_stacks, plow_cooldown, plow_image
         nonlocal buddy_stacks, buddy_image
         nonlocal missile_stacks, missile_cooldown
         nonlocal laser_stacks, laser_cooldown, laser_visual_age, laser_origin, laser_direction
@@ -253,6 +262,11 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         elif name == "Plow":
             plow_stacks   += 1
             plow_cooldown *= 0.9
+            if plow_image is None:
+                raw = pygame.image.load("assets/images/game/plow.png").convert_alpha()
+                target = PLAYER_RADIUS * 2
+                scale  = target / max(raw.get_width(), raw.get_height())
+                plow_image = pygame.transform.scale(raw, (int(raw.get_width() * scale), int(raw.get_height() * scale)))
         elif name == "Little Buddy":
             buddy_stacks += 1
             if buddy_image is None:
@@ -267,7 +281,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             missile_stacks += 1
         elif name == "Laser Beam":
             laser_stacks += 1
-            laser_cooldown = max(4.0, 8.0 - (laser_stacks - 1) * 0.5)
+            laser_cooldown = max(4.0, 6.4 - (laser_stacks - 1) * 0.5)
 
     # -----------------------------------------------------------------------
     # Main loop
@@ -412,20 +426,34 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             if missile_stacks > 0:
                 missile_timer += dt
                 if missile_timer >= missile_cooldown and pygame.key.get_pressed()[pygame.K_SPACE]:
-                    missile_timer = 0.0
-                    missile_dmg = max(20, 4 * level) + (missile_stacks - 1) * 5
+                    missile_timer  = 0.0
+                    missile_count  = missile_stacks * 3
                     targets = sorted(
                         [t for t in list(asteroids) + list(enemies) if t.alive()],
                         key=lambda t: t.position.distance_to(player.position)
                     )
-                    for i in range(missile_stacks):
+                    wing = pygame.Vector2(0, 1).rotate(player.rotation + 90)
+                    side = random.choice([-1, 1])
+                    missile_queue.clear()
+                    for i in range(missile_count):
                         if targets:
-                            Missile(player.position.x, player.position.y, targets[i % len(targets)])
+                            spawn = player.position + wing * (side * 18)
+                            missile_queue.append((spawn.x, spawn.y, targets[i % len(targets)]))
+                            side = -side
+                    missile_launch_timer = 0.0
+
+            if missile_queue:
+                missile_launch_timer -= dt
+                if missile_launch_timer <= 0:
+                    sx, sy, tgt = missile_queue.pop(0)
+                    if tgt.alive():
+                        Missile(sx, sy, tgt)
+                    missile_launch_timer = 0.1
 
             for m in list(missiles):
                 for a in list(asteroids):
                     if m.alive() and a.alive() and m.position.distance_to(a.position) < m.radius + a.radius:
-                        missile_dmg = max(20, 4 * level) + (missile_stacks - 1) * 5
+                        missile_dmg = max(7, (max(20, 4 * level) + (missile_stacks - 1) * 5) // 3)
                         if a.take_damage(missile_dmg):
                             score += _kill_asteroid(a)
                         _spawn_explosion(m.position.x, m.position.y, 15)
@@ -433,7 +461,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                         break
                 for e in list(enemies):
                     if m.alive() and e.alive() and m.position.distance_to(e.position) < m.radius + e.radius:
-                        missile_dmg = max(20, 4 * level) + (missile_stacks - 1) * 5
+                        missile_dmg = max(7, (max(20, 4 * level) + (missile_stacks - 1) * 5) // 3)
                         if e.take_damage(missile_dmg):
                             score += _kill_enemy(e)
                         _spawn_explosion(m.position.x, m.position.y, 15)
@@ -474,18 +502,20 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                             if e.take_damage(bdmg):
                                 score += _kill_enemy(e)
 
-            plow_timer = min(plow_cooldown, plow_timer + dt)
+            plow_timer             = min(plow_cooldown, plow_timer + dt)
+            plow_invincibility_timer = max(0.0, plow_invincibility_timer - dt)
 
             if plow_stacks > 0 and plow_timer >= plow_cooldown:
                 forward  = pygame.Vector2(0, 1).rotate(player.rotation)
                 nose     = player.position + forward * (PLAYER_RADIUS * 0.9)
-                PLOW_R   = 24
-                plow_dmg = max(20, plow_stacks * 2 * level)
+                PLOW_R   = 30
+                plow_dmg = max(35, plow_stacks * 5 * level)
                 plow_hit = False
                 for a in list(asteroids):
                     if a.alive() and not plow_hit and nose.distance_to(a.position) < PLOW_R + a.radius:
                         plow_timer = 0.0
                         plow_hit   = True
+                        plow_invincibility_timer = 0.5
                         if a.take_damage(plow_dmg):
                             score += _kill_asteroid(a)
                         else:
@@ -494,6 +524,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     if e.alive() and not plow_hit and nose.distance_to(e.position) < PLOW_R + e.radius:
                         plow_timer = 0.0
                         plow_hit   = True
+                        plow_invincibility_timer = 0.5
                         if e.take_damage(plow_dmg):
                             score += _kill_enemy(e)
                         else:
@@ -508,7 +539,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                 s.damage  = buddy_dmg
 
             if homing_strength > 0:
-                TURN_SPEED   = homing_strength * 30
+                TURN_SPEED   = homing_strength * 15
                 HOMING_RANGE = 380
                 for s in shots:
                     if s.velocity.length() == 0:
@@ -659,19 +690,15 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         for d in drawable:
             d.draw(game_surf)
 
-        if plow_stacks > 0:
-            forward  = pygame.Vector2(0, 1).rotate(player.rotation)
-            right    = pygame.Vector2(0, 1).rotate(player.rotation + 90)
-            nose     = player.position + forward * (PLAYER_RADIUS * 0.9)
-            tip      = nose + forward * 12
-            left_pt  = nose - right * 9
-            right_pt = nose + right * 9
-            color    = (210, 210, 255) if plow_timer >= plow_cooldown else (70, 70, 110)
-            pygame.draw.polygon(game_surf, color, [
-                (int(tip.x),      int(tip.y)),
-                (int(left_pt.x),  int(left_pt.y)),
-                (int(right_pt.x), int(right_pt.y)),
-            ])
+        if plow_stacks > 0 and plow_image is not None:
+            forward      = pygame.Vector2(0, 1).rotate(player.rotation)
+            nose         = player.position + forward * (PLAYER_RADIUS * 0.9)
+            rotated_plow = pygame.transform.rotate(plow_image, -player.rotation + 180)
+            if plow_timer < plow_cooldown:
+                mask = pygame.Surface(rotated_plow.get_size(), pygame.SRCALPHA)
+                mask.fill((255, 255, 255, 80))
+                rotated_plow.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            game_surf.blit(rotated_plow, rotated_plow.get_rect(center=(int(nose.x), int(nose.y))))
 
         if buddy_stacks > 0 and buddy_image is not None:
             bpos          = player.position + pygame.Vector2(0, 1).rotate(player.rotation + 90) * BUDDY_DISTANCE
@@ -698,18 +725,48 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             t     = min(1.0, laser_visual_age)
             alpha = int(220 * (1 - t))
             end   = laser_origin + laser_direction * 2000
+            beam_w = 2 + laser_stacks * 2
+            core_w = laser_stacks
             laser_surf.fill((0, 0, 0, 0))
             pygame.draw.line(laser_surf, (180, 220, 255, alpha),
                              (int(laser_origin.x), int(laser_origin.y)),
-                             (int(end.x), int(end.y)), 3)
+                             (int(end.x), int(end.y)), beam_w)
             pygame.draw.line(laser_surf, (255, 255, 255, min(255, alpha + 60)),
                              (int(laser_origin.x), int(laser_origin.y)),
-                             (int(end.x), int(end.y)), 1)
+                             (int(end.x), int(end.y)), core_w)
             game_surf.blit(laser_surf, (0, 0))
 
-        game_surf.blit(font.render(f"Score: {score}", True, "white"), (10, 10))
+        if lives == 1:
+            pulse = (math.sin(game_time * 2.5) + 1) / 2
+            bw    = 22
+            da    = int(40 + pulse * 130)
+            danger_surf.fill((0, 0, 0, 0))
+            pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, 0, SCREEN_WIDTH, bw))
+            pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, SCREEN_HEIGHT - bw, SCREEN_WIDTH, bw))
+            pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, 0, bw, SCREEN_HEIGHT))
+            pygame.draw.rect(danger_surf, (220, 0, 0, da), (SCREEN_WIDTH - bw, 0, bw, SCREEN_HEIGHT))
+            game_surf.blit(danger_surf, (0, 0))
+            if int(game_time * 2) % 2 == 0:
+                dtxt = danger_font.render("DANGER", True, (220, 0, 0))
+                game_surf.blit(dtxt, dtxt.get_rect(center=(cx, SCREEN_HEIGHT // 2)))
+
+        game_surf.blit(font.render(f"{score}", True, "white"), (10, 10))
         draw_xp_bar(game_surf, font, cx, level, xp, xp_to_next)
         draw_lives(game_surf, lives, life_regen_timer / life_regen_time)
+
+        bar_w     = 14
+        bar_x     = SCREEN_WIDTH - 22
+        bar_top   = int(SCREEN_HEIGHT * 0.4)
+        bar_h     = int((SCREEN_HEIGHT - 30) * 0.7)
+        bar_bot   = bar_top + bar_h
+        fill_frac = min(1.0, game_time / 300.0)
+        fill_h    = int(bar_h * fill_frac)
+        skull_x = bar_x + bar_w // 2 - skull_image.get_width() // 2
+        skull_y = bar_top - skull_image.get_height() - 2
+        game_surf.blit(skull_image, (skull_x, skull_y))
+        pygame.draw.rect(game_surf, (45, 45, 45),    (bar_x, bar_top, bar_w, bar_h))
+        pygame.draw.rect(game_surf, (255, 255, 255), (bar_x, bar_bot - fill_h, bar_w, fill_h))
+        pygame.draw.rect(game_surf, (120, 120, 120), (bar_x, bar_top, bar_w, bar_h), 1)
 
         # screen shake composite
         if shake_timer > 0:
@@ -721,16 +778,9 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         screen.fill("black")
         screen.blit(game_surf, (ox, oy))
 
-        if lives == 1 and not paused:
-            pulse = (math.sin(game_time * 2.5) + 1) / 2
-            danger_surf.fill((0, 0, 0, 0))
-            pygame.draw.rect(danger_surf, (220, 0, 0, int(40 + pulse * 130)),
-                             (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), 22)
-            screen.blit(danger_surf, (0, 0))
-
         if level_up_pending:
             level_up_pending = False
-            chosen = upgrade.run(screen, clock, font, big_font, screen.copy())
+            chosen = upgrade.run(screen, clock, font, screen.copy())
             if chosen == "quit":
                 return "quit", score
             apply_upgrade(chosen)
@@ -748,7 +798,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         # --- player collision (after flip so last frame is visible) ---
         if not paused:
             for a in list(asteroids) + list(enemies):
-                if a.collides_with(player) and player.invincibility_timer <= 0:
+                if a.collides_with(player) and player.invincibility_timer <= 0 and plow_invincibility_timer <= 0:
                     log_event("player_hit")
                     if shield_active:
                         shield_active         = False

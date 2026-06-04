@@ -37,15 +37,23 @@ UPGRADE_POOL = [
     {"name": "Little Buddy",     "rarity": "legendary"},
 ]
 
-_overlay = None
-_name_font = None
+_overlay    = None
+_name_font  = None
+_title_font = None
 
 
 def _get_name_font():
     global _name_font
     if _name_font is None:
-        _name_font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 28)
+        _name_font = pygame.font.Font("assets/fonts/Symtext.ttf", 22)
     return _name_font
+
+
+def _get_title_font():
+    global _title_font
+    if _title_font is None:
+        _title_font = pygame.font.Font("assets/fonts/Symtext.ttf", 56)
+    return _title_font
 
 
 def _get_overlay():
@@ -75,7 +83,7 @@ def _weighted_sample(pool, k):
     return chosen
 
 
-def run(screen, clock, font, big_font, background) -> str:
+def run(screen, clock, font, background) -> str:
     choices = _weighted_sample(UPGRADE_POOL, 3)
 
     CARD_W, CARD_H = 220, 230
@@ -104,7 +112,7 @@ def run(screen, clock, font, big_font, background) -> str:
         screen.blit(background, (0, 0))
         screen.blit(_get_overlay(), (0, 0))
 
-        title = big_font.render("LEVEL  UP", True, "white")
+        title = _get_title_font().render("LEVEL  UP", True, "white")
         screen.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, card_y - 60)))
 
         for rect, upgrade in cards:
