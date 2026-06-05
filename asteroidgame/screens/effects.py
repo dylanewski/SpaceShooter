@@ -51,6 +51,40 @@ def ray_hits(origin, direction, center, radius):
     return t > 0 and v.length_squared() - t * t < radius * radius
 
 
+def kill_centibomb(c) -> int:
+    from ..entities.boss_shot import BossShot
+    spawn_explosion(c.position.x, c.position.y, c._full_radius)
+    for i in range(5):
+        d = pygame.Vector2(0, 1).rotate(360 / 5 * i)
+        BossShot(c.position.x, c.position.y, d)
+    for _ in range(3):
+        XPOrb(c.position.x, c.position.y)
+    c.kill()
+    return 1
+
+
+def kill_entity(e) -> int:
+    """Route to the right kill function — Centibomb explodes, Enemy does not."""
+    from ..entities.centibomb import Centibomb
+    if isinstance(e, Centibomb):
+        return kill_centibomb(e)
+    return kill_enemy(e)
+
+
+_COMBO_MILESTONES = {10, 25, 50, 100, 250, 500, 1000}
+
+
+def combo_kill(state, kill_fn, entity) -> int:
+    result = kill_fn(entity)
+    if result:
+        state.combo_count += 1
+        state.combo_timer  = 1.0
+        if state.combo_count in _COMBO_MILESTONES:
+            state.award_xp(state.combo_count)
+            state.combo_shake_timer = 0.25
+    return result
+
+
 def kill_asteroid(a) -> int:
     pos = pygame.Vector2(a.position)
     spawn_explosion(pos.x, pos.y, a._full_radius)

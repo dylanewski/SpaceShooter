@@ -18,7 +18,6 @@ class FireBlob(pygame.sprite.Sprite):
         self.lifetime          = lifetime
         self._max_lifetime     = lifetime
         self.damage_per_second = damage_per_second
-        self.damage_timer      = 0.0
 
     def draw(self, screen):
         t = max(0.0, self.lifetime / self._max_lifetime)
@@ -27,7 +26,6 @@ class FireBlob(pygame.sprite.Sprite):
         pygame.draw.circle(screen, color, (int(self.position.x), int(self.position.y)), r)
 
     def update(self, dt):
-        self.lifetime    -= dt
-        self.damage_timer += dt
+        self.lifetime -= dt
         if self.lifetime <= 0:
             self.kill()

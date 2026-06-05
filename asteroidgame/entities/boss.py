@@ -3,6 +3,13 @@ import random
 import pygame
 
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from .boss_shot import BossShot
+
+# Shoot intervals per state
+GAP_SHOOT_INTERVAL    = 2.5
+MOVE1_SHOOT_INTERVAL  = 0.8
+SPIRAL_SHOOT_INTERVAL = 1.5
+ZAP_SHOOT_INTERVAL    = 0.0   # fires on each bounce (handled by event, not timer)
 
 BOSS_MAX_HP      = 700
 BOSS_HEAD_R      = 49   # +30% from 38
@@ -45,9 +52,10 @@ class Boss(pygame.sprite.Sprite):
         self._settled_y  = y * 0.38
         self._player_ref = target
 
-        self.position = pygame.Vector2(x, 0)
-        self.radius   = BOSS_HEAD_R
-        self.health   = BOSS_MAX_HP
+        self.position         = pygame.Vector2(x, 0)
+        self.radius           = BOSS_HEAD_R
+        self.health           = BOSS_MAX_HP
+        self.crit_flash_timer = 0.0
 
         self._angle       = 0.0
         self._wobble_time = 0.0
@@ -73,6 +81,7 @@ class Boss(pygame.sprite.Sprite):
         self._state          = "entering"
         self._timer          = 0.0
         self._exit_check_idx = -1
+        self._shoot_timer    = 0.0
 
         self._reset_to_top()
         self._spr_head, self._spr_body = self._load_sprites()
@@ -84,7 +93,7 @@ class Boss(pygame.sprite.Sprite):
         d_body = BOSS_BODY_R * 2
         try:
             head = pygame.transform.scale(
-                pygame.image.load("assets/images/game/Centipedehead.png").convert_alpha(),
+                pygame.image.load("assets/images/game/mechipedehead.png").convert_alpha(),
                 (BOSS_HEAD_SPRITE_D, BOSS_HEAD_SPRITE_D),
             )
             b1 = pygame.transform.scale(
@@ -122,6 +131,7 @@ class Boss(pygame.sprite.Sprite):
         self._exit_edge      = None
         self._exit_armed     = False
         self._exit_check_idx = -1
+        self._shoot_timer    = 0.0
 
         if self.current_move == 1:
             if self._player_ref and self._player_ref.alive():
@@ -180,6 +190,29 @@ class Boss(pygame.sprite.Sprite):
         return False
 
     # ------------------------------------------------------------------ #
+    def _toward_player(self):
+        if self._player_ref and self._player_ref.alive():
+            d = self._player_ref.position - self._head
+            return d.normalize() if d.length() > 0 else pygame.Vector2(0, 1)
+        return pygame.Vector2(0, 1)
+
+    def _fire_fan(self, count, spread_deg):
+        """Fire `count` shots in a fan centred on the player direction."""
+        base = self._toward_player()
+        step = spread_deg / max(1, count - 1) if count > 1 else 0
+        start_angle = -(spread_deg / 2)
+        for i in range(count):
+            d = base.rotate(start_angle + i * step)
+            BossShot(self._head.x, self._head.y, d)
+
+    def _fire_radial(self, count):
+        """Fire `count` shots evenly around the head."""
+        for i in range(count):
+            angle = 360 / count * i
+            d = pygame.Vector2(0, 1).rotate(angle)
+            BossShot(self._head.x, self._head.y, d)
+
+    # ------------------------------------------------------------------ #
     def get_segments(self):
         yield pygame.Vector2(self._head), BOSS_HEAD_R
         for pos in self._body:
@@ -191,6 +224,7 @@ class Boss(pygame.sprite.Sprite):
 
     # ------------------------------------------------------------------ #
     def update(self, dt: float) -> None:
+        self.crit_flash_timer = max(0.0, self.crit_flash_timer - dt)
         self._angle += 40 * dt
 
         # ---- ENTERING ----
@@ -210,12 +244,21 @@ class Boss(pygame.sprite.Sprite):
             self._wobble_time += dt
             ox = math.sin(self._wobble_time * 0.7) * 18
             self._head.x = self._spawn_x + ox
+            self._shoot_timer += dt
+            if self._shoot_timer >= GAP_SHOOT_INTERVAL:
+                self._shoot_timer = 0.0
+                self._fire_fan(4, 40)
             if self._timer >= GAP_DURATION:
                 self._pick_next_move()
 
         # ---- MOVE 1: dash toward player → off screen → re-enter ----
         elif self._state == "move1":
             self._head += self._move1_dir * MOVE1_SPEED * dt
+            if not self._exit_armed:   # only shoot while still on screen
+                self._shoot_timer += dt
+                if self._shoot_timer >= MOVE1_SHOOT_INTERVAL:
+                    self._shoot_timer = 0.0
+                    self._fire_fan(3, 25)
             if self._arm_exit() and self._body_cleared():
                 self._reset_to_top()
                 self._state = "entering"
@@ -243,6 +286,10 @@ class Boss(pygame.sprite.Sprite):
                 theta = SPIRAL_SPEED * t
                 self._head.x = cx + r * math.cos(theta)
                 self._head.y = cy + r * math.sin(theta)
+                self._shoot_timer += dt
+                if self._shoot_timer >= SPIRAL_SHOOT_INTERVAL:
+                    self._shoot_timer = 0.0
+                    self._fire_radial(6)
                 if self._m2_spiral_t >= SPIRAL_DURATION:
                     self._m2_phase       = "exit"
                     self._exit_edge      = None
@@ -269,15 +316,17 @@ class Boss(pygame.sprite.Sprite):
                     ty = SCREEN_HEIGHT / 2
                 self._head.y += (ty - self._head.y) * dt * 0.6
 
-                # bounce off edges
+                # bounce off edges — fire on each reversal
                 if self._m3_dir > 0 and self._head.x >= SCREEN_WIDTH - ZIGZAG_EDGE_PAD:
                     self._head.x = SCREEN_WIDTH - ZIGZAG_EDGE_PAD
                     self._m3_dir = -1
                     self._m3_sweeps += 1
+                    self._fire_fan(3, 30)
                 elif self._m3_dir < 0 and self._head.x <= ZIGZAG_EDGE_PAD:
                     self._head.x = ZIGZAG_EDGE_PAD
                     self._m3_dir = 1
                     self._m3_sweeps += 1
+                    self._fire_fan(3, 30)
 
                 if self._m3_sweeps >= ZIGZAG_SWEEPS:
                     self._m3_phase   = "exit"
@@ -306,10 +355,15 @@ class Boss(pygame.sprite.Sprite):
 
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _blit_rotated(screen, spr, pos, angle_deg):
+    def _blit_rotated(screen, spr, pos, angle_deg, flash=False):
         rotated = pygame.transform.rotate(spr, angle_deg)
         rect    = rotated.get_rect(center=(int(pos.x), int(pos.y)))
-        screen.blit(rotated, rect)
+        if flash:
+            f = rotated.copy()
+            f.fill((255, 255, 255, 0), special_flags=pygame.BLEND_RGB_ADD)
+            screen.blit(f, rect)
+        else:
+            screen.blit(rotated, rect)
 
     def draw(self, screen):
         all_pos = [self._head] + self._body
@@ -333,7 +387,7 @@ class Boss(pygame.sprite.Sprite):
 
             spr = self._spr_body[i % 2]
             if spr:
-                self._blit_rotated(screen, spr, pos, angle)
+                self._blit_rotated(screen, spr, pos, angle, flash=self.crit_flash_timer > 0)
             else:
                 cx, cy = int(pos.x), int(pos.y)
                 pygame.draw.circle(screen, (120, 8, 8),   (cx, cy), BOSS_BODY_R)
@@ -344,7 +398,7 @@ class Boss(pygame.sprite.Sprite):
         d_head = self._head - self._body[0]
         h_angle = (math.degrees(math.atan2(-d_head.y, d_head.x)) + 90) if d_head.length() > 0 else 0
         if self._spr_head:
-            self._blit_rotated(screen, self._spr_head, self._head, h_angle)
+            self._blit_rotated(screen, self._spr_head, self._head, h_angle, flash=self.crit_flash_timer > 0)
         else:
             hx, hy = int(self._head.x), int(self._head.y)
             pygame.draw.circle(screen, (160, 10, 10), (hx, hy), BOSS_HEAD_R)

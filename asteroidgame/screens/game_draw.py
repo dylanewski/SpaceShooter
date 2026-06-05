@@ -7,6 +7,14 @@ from ..ui import draw_xp_bar, draw_lives, draw_button
 from ..entities.boss import BOSS_MAX_HP
 from .game_state import SHAKE_DURATION, SHAKE_INTENSITY, PULSE_RADIUS
 
+_combo_font = None
+
+def _get_combo_font():
+    global _combo_font
+    if _combo_font is None:
+        _combo_font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 52)
+    return _combo_font
+
 
 # ---------------------------------------------------------------------------
 # Main draw entry point
@@ -19,11 +27,13 @@ def draw_frame(game_surf, screen, state, player, groups, surfs, fonts, ui, dt):
     _draw_missiles_vortexes_blobs(game_surf, groups)
     _draw_particles_and_sprites(game_surf, groups)
     _draw_player_attachments(game_surf, state, player)
+    _draw_boss(game_surf, state)
     _draw_shield(game_surf, state, player, surfs['shield'])
     _draw_explosion_rings(game_surf, state, surfs['exp'], dt)
     _draw_pulse_ring(game_surf, state, player, surfs['pulse'], dt)
     _draw_laser_beam(game_surf, state, surfs['laser'], dt)
-    _draw_boss_ui(game_surf, state, ui['cx'], fonts['main'], ui['boss_excl_image'])
+    _draw_bolt_visuals(game_surf, state, dt)
+    _draw_boss_ui(game_surf, state, ui['cx'], fonts['main'], ui['boss_excl_image'], dt)
     _draw_hud(game_surf, state, player, fonts, ui)
 
     if state.shake_timer > 0:
@@ -103,6 +113,11 @@ def _draw_player_attachments(surf, state, player):
             center=(int(state.buddy_delayed_pos.x), int(state.buddy_delayed_pos.y))))
 
 
+def _draw_boss(surf, state):
+    if state.boss_active and state.current_boss is not None:
+        state.current_boss.draw(surf)
+
+
 def _draw_shield(surf, state, player, shield_surf):
     if not state.shield_active:
         return
@@ -162,25 +177,50 @@ def _draw_laser_beam(surf, state, laser_surf, dt):
     surf.blit(laser_surf, (0, 0))
 
 
+def _draw_bolt_visuals(surf, state, dt):
+    next_bolts = []
+    for bv in state.bolt_visuals:
+        bv['age'] += dt
+        if bv['age'] < bv['max_age']:
+            next_bolts.append(bv)
+            t    = 1.0 - bv['age'] / bv['max_age']
+            pts  = [(int(x), int(y)) for x, y in bv['pts']]
+            glow = (int(40 * t), int(100 * t), int(255 * t))
+            core = (int(200 * t), int(230 * t), int(255 * t))
+            for i in range(len(pts) - 1):
+                pygame.draw.line(surf, glow, pts[i], pts[i + 1], 4)
+            for i in range(len(pts) - 1):
+                pygame.draw.line(surf, core, pts[i], pts[i + 1], 2)
+    state.bolt_visuals[:] = next_bolts
+
+
 # ---------------------------------------------------------------------------
 # HUD elements
 # ---------------------------------------------------------------------------
 
-def _draw_boss_ui(surf, state, cx, font, boss_excl_image):
+def _draw_boss_ui(surf, state, cx, font, boss_excl_image, dt):
     if state.boss_active and state.current_boss is not None:
-        BAR_W, BAR_H = 420, 18
-        bx     = cx - BAR_W // 2
-        by     = SCREEN_HEIGHT - 50
         hp_frac = max(0.0, state.current_boss.health / BOSS_MAX_HP)
-        pygame.draw.rect(surf, (60, 0, 0),    (bx, by, BAR_W, BAR_H))
-        pygame.draw.rect(surf, (210, 30, 30), (bx, by, int(BAR_W * hp_frac), BAR_H))
-        pygame.draw.rect(surf, (255, 90, 90), (bx, by, BAR_W, BAR_H), 2)
-        blbl = font.render("BOSS", True, (255, 90, 90))
+
+        # ghost bar lags behind real HP — drains slowly so the gap is visible
+        if state.boss_hp_visual > hp_frac:
+            state.boss_hp_visual = max(hp_frac, state.boss_hp_visual - dt * 0.12)
+        else:
+            state.boss_hp_visual = hp_frac
+
+        BAR_W, BAR_H = 420, 18
+        bx = cx - BAR_W // 2
+        by = SCREEN_HEIGHT - 50
+
+        pygame.draw.rect(surf, (20, 0, 0),    (bx, by, BAR_W, BAR_H))                             # background
+        pygame.draw.rect(surf, (230, 80, 80), (bx, by, int(BAR_W * state.boss_hp_visual), BAR_H))  # ghost (light salmon — visible gap)
+        pygame.draw.rect(surf, (200, 20, 20), (bx, by, int(BAR_W * hp_frac), BAR_H))              # real HP (deep vivid red)
+        pygame.draw.rect(surf, (220, 30, 30), (bx, by, BAR_W, BAR_H), 2)                           # border
+
+        _BOSS_NAMES = {1: "Mechipede"}
+        boss_name = _BOSS_NAMES.get(state.game_phase, "BOSS")
+        blbl = font.render(boss_name, True, (220, 30, 30))
         surf.blit(blbl, blbl.get_rect(midbottom=(cx, by - 4)))
-        if state.current_boss.alive():
-            move_txt = "..." if state.current_boss.current_move == 0 else f"Move {state.current_boss.current_move}"
-            mlbl = font.render(move_txt, True, (255, 160, 160))
-            surf.blit(mlbl, mlbl.get_rect(midtop=(cx, by + BAR_H + 6)))
 
     if state.boss_intro_active and int(state.boss_intro_timer * 2) % 2 == 0:
         if boss_excl_image is not None:
@@ -267,6 +307,18 @@ def _draw_hud(surf, state, player, fonts, ui):
     pygame.draw.rect(surf, (45, 45, 45),  (bar_x, bar_top, bar_w, bar_h))
     pygame.draw.rect(surf, bar_color,     (bar_x, bar_bot - fill_h, bar_w, fill_h))
     pygame.draw.rect(surf, (120, 120, 120), (bar_x, bar_top, bar_w, bar_h), 1)
+
+    if state.combo_count > 0:
+        t     = min(1.0, state.combo_count / 100.0)
+        color = (255, int(255 - 35 * t), int(255 * (1 - t)))
+        ox, oy = 0, 0
+        if state.combo_shake_timer > 0:
+            mag = int(7 * state.combo_shake_timer / 0.25)
+            ox  = random.randint(-mag, mag)
+            oy  = random.randint(-mag, mag)
+        combo_txt = _get_combo_font().render(str(state.combo_count), True, color)
+        surf.blit(combo_txt, combo_txt.get_rect(
+            bottomright=(SCREEN_WIDTH - 20 + ox, SCREEN_HEIGHT - 20 + oy)))
 
 
 def draw_pause_overlay(screen, state, big_font, fonts, cx, cy, pause_overlay,

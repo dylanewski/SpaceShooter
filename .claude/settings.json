@@ -5,7 +5,11 @@
       "Bash(python -c \"from asteroidgame.screens.game import run; print\\('OK'\\)\")",
       "Bash(python3 -c \"from asteroidgame.screens.game import run; print\\('OK'\\)\")",
       "Bash(python3 -m py_compile asteroidgame/screens/game.py asteroidgame/screens/game_state.py asteroidgame/screens/game_systems.py asteroidgame/screens/game_combat.py asteroidgame/screens/game_draw.py asteroidgame/screens/effects.py)",
-      "Bash(python3 -m py_compile /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/entities/player.py)"
+      "Bash(python3 -m py_compile /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/entities/player.py)",
+      "Bash(xargs ls -lt)",
+      "Bash(python3 -m py_compile /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/entities/boss_shot.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_draw.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_state.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_systems.py)",
+      "Bash(python3 -c \"import pygame; pygame.init\\(\\); from asteroidgame.screens.game import run; print\\('OK'\\)\")",
+      "Bash(uv run *)"
     ]
   }
 }

@@ -7,6 +7,7 @@ from ..constants import (
     XP_ORB_PICKUP_RADIUS, INVINCIBILITY_TIME, MAX_LIVES,
 )
 from ..entities.enemy import Enemy, ENEMY_SPAWN_RATE_START, ENEMY_SPAWN_RATE_MIN, ENEMY_MAX_HEALTH
+from ..entities.centibomb import Centibomb, CENTIBOMB_HEALTH
 from ..entities.fireblob import FireBlob
 from ..entities.missile import Missile
 from ..entities.vortex import Vortex, VORTEX_LIFETIME
@@ -31,6 +32,13 @@ def update_timers(state, dt):
     if state.xp_visual > target_frac + 0.05:
         state.xp_visual = 0.0
     state.xp_visual = min(target_frac, state.xp_visual + dt * 0.6)
+
+    if state.combo_timer > 0:
+        state.combo_timer = max(0.0, state.combo_timer - dt)
+        if state.combo_timer == 0.0:
+            state.combo_count = 0
+    if state.combo_shake_timer > 0:
+        state.combo_shake_timer = max(0.0, state.combo_shake_timer - dt)
 
     if state.lives < MAX_LIVES:
         state.life_regen_timer += dt
@@ -96,7 +104,7 @@ def handle_boss_intro(state, groups, player, cx, cy, dt):
     if not state.boss_intro_active:
         return
     state.boss_intro_timer += dt
-    FLEE_SPEED = 80
+    FLEE_SPEED = 250
     OFFSCREEN  = 150
     center     = pygame.Vector2(cx, cy)
     for a in list(groups['asteroids']):
@@ -113,10 +121,18 @@ def handle_boss_intro(state, groups, player, cx, cy, dt):
             if (e.position.x < -OFFSCREEN or e.position.x > SCREEN_WIDTH + OFFSCREEN or
                     e.position.y < -OFFSCREEN or e.position.y > SCREEN_HEIGHT + OFFSCREEN):
                 e.kill()
+    for c in list(groups['centibombs']):
+        if c.alive():
+            d = c.position - center
+            c.velocity = (d.normalize() if d.length() > 0 else pygame.Vector2(1, 0)) * FLEE_SPEED
+            if (c.position.x < -OFFSCREEN or c.position.x > SCREEN_WIDTH + OFFSCREEN or
+                    c.position.y < -OFFSCREEN or c.position.y > SCREEN_HEIGHT + OFFSCREEN):
+                c.kill()
     if state.boss_intro_timer >= 3.0:
         state.boss_intro_active = False
         state.boss_active       = True
         state.current_boss      = Boss(cx, cy, player)
+        state.boss_hp_visual    = 1.0
         for a in list(groups['asteroids']): a.kill()
         for e in list(groups['enemies']):   e.kill()
 
@@ -156,6 +172,77 @@ def handle_xp_star_spawn(state, dt):
             XPStar()
 
 
+CENTIBOMB_SPAWN_INTERVAL = 25.0
+
+BOLT_RANGE   = 350
+BOLT_MAX_AGE = 0.35
+
+
+def _gen_bolt_pts(x1, y1, x2, y2, segments=8):
+    dx = x2 - x1
+    dy = y2 - y1
+    length = (dx * dx + dy * dy) ** 0.5
+    pts = [(x1, y1)]
+    for i in range(1, segments):
+        t  = i / segments
+        bx = x1 + dx * t
+        by = y1 + dy * t
+        if length > 0:
+            perp_x = -dy / length
+            perp_y =  dx / length
+            offset = random.uniform(-length * 0.12, length * 0.12)
+            bx += perp_x * offset
+            by += perp_y * offset
+        pts.append((bx, by))
+    pts.append((x2, y2))
+    return pts
+
+
+def handle_bolt_dash(state, player, groups):
+    if not player.just_dashed or state.bolt_dash_stacks == 0:
+        return
+    from .effects import kill_enemy, kill_centibomb, combo_kill, spawn_hit_effect
+    from ..entities.centibomb import Centibomb
+
+    bolt_dmg    = max(20, 3 * state.level)
+    level_bonus = (state.level - 1) // 4
+    bolt_min    = 1 + (state.bolt_dash_stacks - 1) + level_bonus
+    bolt_max    = 3 + (state.bolt_dash_stacks - 1) + level_bonus
+    bolt_count  = random.randint(max(1, bolt_min), bolt_max)
+    candidates  = sorted(
+        [t for t in list(groups['enemies']) + list(groups['centibombs'])
+         if t.alive() and t.position.distance_to(player.position) <= BOLT_RANGE],
+        key=lambda t: t.position.distance_to(player.position),
+    )
+    for target in candidates[:bolt_count]:
+        pts = _gen_bolt_pts(player.position.x, player.position.y,
+                            target.position.x, target.position.y)
+        state.bolt_visuals.append({'pts': pts, 'age': 0.0, 'max_age': BOLT_MAX_AGE})
+        if target.take_damage(bolt_dmg):
+            kill_fn = kill_centibomb if isinstance(target, Centibomb) else kill_enemy
+            state.score += combo_kill(state, kill_fn, target)
+        else:
+            spawn_hit_effect(target.position.x, target.position.y)
+
+
+def handle_centibomb_spawn(state, groups, cx, cy, dt):
+    if state.level < 3 or state.boss_intro_active or state.boss_active:
+        return
+    state.centibomb_spawn_timer += dt
+    if state.centibomb_spawn_timer < CENTIBOMB_SPAWN_INTERVAL:
+        return
+    state.centibomb_spawn_timer = 0.0
+    SPAWN_MARGIN = 160
+    edge = random.choice([
+        pygame.Vector2(-SPAWN_MARGIN,               random.uniform(0, 1) * SCREEN_HEIGHT),
+        pygame.Vector2(SCREEN_WIDTH + SPAWN_MARGIN,  random.uniform(0, 1) * SCREEN_HEIGHT),
+        pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, -SPAWN_MARGIN),
+        pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH,  SCREEN_HEIGHT + SPAWN_MARGIN),
+    ])
+    c = Centibomb(edge.x, edge.y)
+    c.health = int(CENTIBOMB_HEALTH * (1.0 + int(state.game_time // 60) * 0.10))
+
+
 def handle_xp_collection(state, player, groups):
     for star in list(groups['xp_stars']):
         if star.position.distance_to(player.position) < player.radius + star.pickup_radius:
@@ -190,7 +277,7 @@ def handle_pulse(state, player, groups, dt):
     if state.pulse_timer >= state.pulse_cooldown:
         state.pulse_timer     = 0.0
         state.pulse_visual_age = 0.0
-        from .effects import kill_asteroid, kill_enemy
+        from .effects import kill_asteroid, kill_enemy, kill_centibomb, combo_kill
         dmg = max(10, 3 * state.level)
         for a in list(groups['asteroids']):
             if a.alive() and a.position.distance_to(player.position) <= PULSE_RADIUS:
@@ -199,7 +286,11 @@ def handle_pulse(state, player, groups, dt):
         for e in list(groups['enemies']):
             if e.alive() and e.position.distance_to(player.position) <= PULSE_RADIUS:
                 if e.take_damage(dmg):
-                    state.score += kill_enemy(e)
+                    state.score += combo_kill(state, kill_enemy, e)
+        for c in list(groups['centibombs']):
+            if c.alive() and c.position.distance_to(player.position) <= PULSE_RADIUS:
+                if c.take_damage(dmg):
+                    state.score += combo_kill(state, kill_centibomb, c)
 
 
 def handle_afterburn(state, player, dt):
@@ -210,7 +301,7 @@ def handle_afterburn(state, player, dt):
         if state.afterburn_timer >= 0.1:
             state.afterburn_timer = 0.0
             FireBlob(player.position.x, player.position.y,
-                     state.afterburn_stacks * 3, 1.5 + state.afterburn_stacks * 1.0)
+                     state.afterburn_stacks * state.level, 4.5)
     else:
         state.afterburn_timer = 0.0
 
@@ -223,7 +314,7 @@ def handle_vortex(state, player, groups, dt):
             Vortex(player.position.x, player.position.y,
                    pygame.Vector2(0, 1).rotate(player.rotation), max(5, state.level))
 
-    from .effects import kill_asteroid, kill_enemy
+    from .effects import kill_asteroid, kill_enemy, kill_centibomb, combo_kill
     for v in list(groups['vortexes']):
         if not v.is_vortexing:
             TRAVEL_HIT_R  = 18
@@ -237,6 +328,10 @@ def handle_vortex(state, player, groups, dt):
                     for e in list(groups['enemies']):
                         if e.alive() and v.position.distance_to(e.position) < e.radius + TRAVEL_HIT_R:
                             v.anchor(); break
+                if not v.is_vortexing:
+                    for c in list(groups['centibombs']):
+                        if c.alive() and v.position.distance_to(c.position) < c.radius + TRAVEL_HIT_R:
+                            v.anchor(); break
         if not v.is_vortexing:
             continue
         for a in list(groups['asteroids']):
@@ -249,6 +344,11 @@ def handle_vortex(state, player, groups, dt):
                 dist = e.position.distance_to(v.position)
                 if 0 < dist < v.pull_radius:
                     e.velocity += (v.position - e.position).normalize() * (1 - dist / v.pull_radius) * 280 * dt
+        for c in list(groups['centibombs']):
+            if c.alive():
+                dist = c.position.distance_to(v.position)
+                if 0 < dist < v.pull_radius:
+                    c.velocity += (v.position - c.position).normalize() * (1 - dist / v.pull_radius) * 280 * dt
         for orb in list(groups['xp_orbs']) + list(groups['big_xp_orbs']):
             if orb.alive():
                 dist = orb.position.distance_to(v.position)
@@ -267,7 +367,10 @@ def handle_vortex(state, player, groups, dt):
                     if a.take_damage(vdmg): state.score += kill_asteroid(a)
             for e in list(groups['enemies']):
                 if e.alive() and e.position.distance_to(v.position) < v.pull_radius:
-                    if e.take_damage(vdmg): state.score += kill_enemy(e)
+                    if e.take_damage(vdmg): state.score += combo_kill(state, kill_enemy, e)
+            for c in list(groups['centibombs']):
+                if c.alive() and c.position.distance_to(v.position) < v.pull_radius:
+                    if c.take_damage(vdmg): state.score += combo_kill(state, kill_centibomb, c)
 
 
 def handle_missile_ability(state, player, groups, dt):
@@ -277,7 +380,7 @@ def handle_missile_ability(state, player, groups, dt):
             state.missile_timer = 0.0
             missile_count = state.missile_stacks * 3
             targets = sorted(
-                [t for t in list(groups['asteroids']) + list(groups['enemies'])
+                [t for t in list(groups['asteroids']) + list(groups['enemies']) + list(groups['centibombs'])
                  if t.alive() and 0 <= t.position.x <= SCREEN_WIDTH and 0 <= t.position.y <= SCREEN_HEIGHT],
                 key=lambda t: t.position.distance_to(player.position),
             )
@@ -307,7 +410,7 @@ def handle_laser_ability(state, player, groups, dt):
         return
     state.laser_timer += dt
     if state.laser_timer >= state.laser_cooldown and pygame.key.get_pressed()[pygame.K_SPACE]:
-        from .effects import kill_asteroid, kill_enemy, spawn_hit_effect
+        from .effects import kill_asteroid, kill_enemy, kill_centibomb, combo_kill, spawn_hit_effect
         state.laser_timer     = 0.0
         state.laser_visual_age = 0.0
         state.laser_origin    = pygame.Vector2(player.position)
@@ -320,8 +423,12 @@ def handle_laser_ability(state, player, groups, dt):
                 else: spawn_hit_effect(a.position.x, a.position.y)
         for e in list(groups['enemies']):
             if e.alive() and ray_hits(state.laser_origin, state.laser_direction, e.position, e.radius):
-                if e.take_damage(laser_dmg): state.score += kill_enemy(e)
+                if e.take_damage(laser_dmg): state.score += combo_kill(state, kill_enemy, e)
                 else: spawn_hit_effect(e.position.x, e.position.y)
+        for c in list(groups['centibombs']):
+            if c.alive() and ray_hits(state.laser_origin, state.laser_direction, c.position, c.radius):
+                if c.take_damage(laser_dmg): state.score += combo_kill(state, kill_centibomb, c)
+                else: spawn_hit_effect(c.position.x, c.position.y)
 
 
 def resolve_buddy_pre_update(state, player, groups):
@@ -387,7 +494,7 @@ def steer_homing(state, player, groups, dt):
         if s.velocity.length() == 0:
             continue
         nearest, nearest_dist = None, float('inf')
-        for target in list(groups['asteroids']) + list(groups['enemies']):
+        for target in list(groups['asteroids']) + list(groups['enemies']) + list(groups['centibombs']):
             if target.alive():
                 d = s.position.distance_to(target.position)
                 if d < nearest_dist:
@@ -453,8 +560,13 @@ def apply_upgrade(state, player, name):
     elif name == "Vortex Field":
         state.vortex_stacks  += 1
         state.vortex_cooldown = max(10.0, 15.0 - (state.vortex_stacks - 1) * 5)
+    elif name == "Bolt Dash":
+        state.bolt_dash_stacks    += 1
+        player.dash_cooldown_time  = max(1.5, player.dash_cooldown_time - 0.4)
     elif name == "Missile Salvo":
         state.missile_stacks += 1
     elif name == "Laser Beam":
         state.laser_stacks  += 1
         state.laser_cooldown = max(4.0, 6.4 - (state.laser_stacks - 1) * 0.5)
+    elif name == "Crit Chance Up":
+        state.crit_chance += 10

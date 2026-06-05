@@ -38,6 +38,7 @@ class GameState:
         self.boss_active       = False
         self.boss_triggered    = False
         self.current_boss      = None
+        self.boss_hp_visual    = 1.0   # ghost bar — lags behind real HP
 
         # ---- player progression ----
         self.xp               = 0
@@ -49,9 +50,15 @@ class GameState:
         self.life_regen_time  = LIFE_REGEN_TIME
         self.life_regen_timer = 0.0
 
+        # ---- combo ----
+        self.combo_count       = 0
+        self.combo_timer       = 0.0
+        self.combo_shake_timer = 0.0
+
         # ---- base stats ----
         self.shot_damage   = 10
         self.xp_multiplier = 1.0
+        self.crit_chance   = 3
 
         # ---- shield ----
         self.shield_stacks        = 0
@@ -76,6 +83,10 @@ class GameState:
         self.ricochet_stacks   = 0
         self.explosive_stacks  = 0
         self.explosion_visuals = []   # list of [x, y, max_r, age]
+
+        # ---- bolt dash ----
+        self.bolt_dash_stacks = 0
+        self.bolt_visuals     = []   # [{'pts': [...], 'age': float, 'max_age': float}]
 
         # ---- plow ----
         self.plow_stacks             = 0
@@ -113,9 +124,10 @@ class GameState:
 
         # ---- spawn timers ----
         self.particle_timer    = 0.0
-        self.enemy_spawn_rate  = ENEMY_SPAWN_RATE_START
-        self.enemy_spawn_timer = 0.0
-        self.xp_star_timer     = 0.0
+        self.enemy_spawn_rate      = ENEMY_SPAWN_RATE_START
+        self.enemy_spawn_timer     = 0.0
+        self.centibomb_spawn_timer = 0.0
+        self.xp_star_timer         = 0.0
 
     # -----------------------------------------------------------------------
     def award_xp(self, amount=1):

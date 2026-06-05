@@ -25,14 +25,22 @@ class Asteroid(CircleShape):
         self._angle = random.uniform(0, 360)
         self._rotation_speed = random.uniform(-50, 50)
         self.health = 10
+        self.crit_flash_timer = 0.0
 
     def draw(self, screen):
         rotated = pygame.transform.rotate(self._image, self._angle)
-        screen.blit(rotated, rotated.get_rect(center=(int(self.position.x), int(self.position.y))))
+        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
+        if self.crit_flash_timer > 0:
+            flash = rotated.copy()
+            flash.fill((255, 255, 255, 0), special_flags=pygame.BLEND_RGB_ADD)
+            screen.blit(flash, rect)
+        else:
+            screen.blit(rotated, rect)
 
     def update(self, dt: float) -> None:
         self.position += self.velocity * dt
         self._angle += self._rotation_speed * dt
+        self.crit_flash_timer = max(0.0, self.crit_flash_timer - dt)
 
     def take_damage(self, amount: int) -> bool:
         self.health -= amount
