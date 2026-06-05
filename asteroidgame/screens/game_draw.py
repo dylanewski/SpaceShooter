@@ -258,7 +258,7 @@ def _draw_hud(surf, state, player, fonts, ui):
         fill_frac = 1.0
         bar_color = (220, 30, 30)
     else:
-        fill_frac = min(1.0, (state.game_time - state.spawn_ramp_offset) / 300.0)
+        fill_frac = min(1.0, (state.game_time - state.spawn_ramp_offset) / 240.0)
         bar_color = (255, 255, 255)
     fill_h  = int(bar_h * fill_frac)
     skull_x = bar_x + bar_w // 2 - skull_img.get_width() // 2

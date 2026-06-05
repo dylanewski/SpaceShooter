@@ -66,7 +66,7 @@ def handle_boss_trigger(state):
     if (not state.boss_triggered
             and not state.boss_intro_active
             and not state.boss_active
-            and (state.game_time - state.spawn_ramp_offset) >= 300.0):
+            and (state.game_time - state.spawn_ramp_offset) >= 240.0):
         state.boss_intro_active = True
         state.boss_intro_timer  = 0.0
         state.boss_triggered    = True
@@ -77,7 +77,7 @@ def update_spawn_rates(state, asteroid_field):
         asteroid_field.spawn_rate = 9999.0
         return
     if state.game_phase == 1:
-        _ramp   = 300.0
+        _ramp   = 240.0
         _ast_hi = ASTEROID_SPAWN_RATE_SECONDS * 8
         _ast_lo = ASTEROID_SPAWN_RATE_SECONDS / 2
         _enm_lo = ENEMY_SPAWN_RATE_MIN
@@ -127,17 +127,23 @@ def handle_enemy_spawn(state, groups, cx, cy, dt):
     state.enemy_spawn_timer += dt
     if state.enemy_spawn_timer >= state.enemy_spawn_rate:
         state.enemy_spawn_timer = 0.0
-        margin = 30
+        SPAWN_MARGIN = 160   # well off screen — no flash on entry
+        INNER_PAD    = 100   # target stays away from screen edges
         edge = random.choice([
-            pygame.Vector2(-margin,               random.uniform(0, 1) * SCREEN_HEIGHT),
-            pygame.Vector2(SCREEN_WIDTH + margin,  random.uniform(0, 1) * SCREEN_HEIGHT),
-            pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, -margin),
-            pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, SCREEN_HEIGHT + margin),
+            pygame.Vector2(-SPAWN_MARGIN,              random.uniform(0, 1) * SCREEN_HEIGHT),
+            pygame.Vector2(SCREEN_WIDTH + SPAWN_MARGIN, random.uniform(0, 1) * SCREEN_HEIGHT),
+            pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, -SPAWN_MARGIN),
+            pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, SCREEN_HEIGHT + SPAWN_MARGIN),
         ])
+        target = pygame.Vector2(
+            random.uniform(INNER_PAD, SCREEN_WIDTH  - INNER_PAD),
+            random.uniform(INNER_PAD, SCREEN_HEIGHT - INNER_PAD),
+        )
         e = Enemy(edge.x, edge.y)
         e.health = int(ENEMY_MAX_HEALTH * (1.0 + int(state.game_time // 60) * 0.10))
-        toward_center = (pygame.Vector2(cx, cy) - edge).normalize()
-        e.velocity = toward_center * e.velocity.length()
+        to_target = target - edge
+        if to_target.length() > 0:
+            e.velocity = to_target.normalize() * e.velocity.length()
 
 
 def handle_xp_star_spawn(state, dt):
@@ -368,7 +374,7 @@ def tag_ricochet(state, player, groups, shots_before_update):
     if state.ricochet_stacks > 0 and player.just_fired:
         for s in groups['shots']:
             if s not in shots_before_update:
-                s.bounces_left = state.ricochet_stacks
+                s.bounces_left = 1  # flag: spawn ricochets on hit (count = state.ricochet_stacks)
 
 
 def steer_homing(state, player, groups, dt):

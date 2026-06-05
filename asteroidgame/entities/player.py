@@ -7,6 +7,19 @@ ANGULAR_MAX   = PLAYER_TURN_SPEED   # 300 deg/s
 ANGULAR_ACCEL = 900                 # deg/s²  — reaches max in 0.33 s
 ANGULAR_DECEL = 700                 # deg/s²  — coasts to stop in 0.43 s
 
+DASH_COOLDOWN_TIME = 3.0    # seconds between dashes
+DASH_INVINCIBILITY = 1.0    # invincibility window granted by a dash
+DASH_SPEED_MULT    = 3.5    # burst velocity as a multiple of player.speed
+DOUBLE_TAP_WINDOW  = 0.25   # seconds within which a second tap triggers a dash
+
+# Local direction vectors for each dash key (rotated by ship heading at dash time)
+_DASH_DIRS = {
+    pygame.K_w: pygame.Vector2( 0,  1),   # forward
+    pygame.K_s: pygame.Vector2( 0, -1),   # backward
+    pygame.K_a: pygame.Vector2(-1,  0),   # left strafe
+    pygame.K_d: pygame.Vector2( 1,  0),   # right strafe
+}
+
 
 class Player(CircleShape):
     def __init__(self, x, y):
@@ -21,6 +34,11 @@ class Player(CircleShape):
         self.invincibility_timer = 0.0
         self.is_thrusting     = False
         self.just_fired       = False
+
+        self.dash_cooldown    = 0.0
+        self._internal_time   = 0.0   # monotonic clock for double-tap timing
+        self._last_tap_time   = {k: -999.0 for k in _DASH_DIRS}
+        self._prev_keys       = {k: False  for k in _DASH_DIRS}
 
         target = PLAYER_RADIUS * 2
 
@@ -49,8 +67,26 @@ class Player(CircleShape):
     def update(self, dt: float) -> None:
         self.just_fired = False
         self.invincibility_timer = max(0.0, self.invincibility_timer - dt)
-        self.shot_cooldown = max(0.0, self.shot_cooldown - dt)
+        self.shot_cooldown       = max(0.0, self.shot_cooldown - dt)
+        self.dash_cooldown       = max(0.0, self.dash_cooldown - dt)
+        self._internal_time     += dt
         keys = pygame.key.get_pressed()
+
+        # --- double-tap dash detection ---
+        for key, local_dir in _DASH_DIRS.items():
+            pressed_now = bool(keys[key])
+            just_pressed = pressed_now and not self._prev_keys[key]
+            if just_pressed:
+                if (self.dash_cooldown <= 0 and
+                        self._internal_time - self._last_tap_time[key] <= DOUBLE_TAP_WINDOW):
+                    dash_dir = local_dir.rotate(self.rotation)
+                    self.velocity            = dash_dir * (self.speed * DASH_SPEED_MULT)
+                    self.invincibility_timer = DASH_INVINCIBILITY
+                    self.dash_cooldown       = DASH_COOLDOWN_TIME
+                    self._last_tap_time[key] = -999.0  # reset so a third tap doesn't chain
+                else:
+                    self._last_tap_time[key] = self._internal_time
+            self._prev_keys[key] = pressed_now
 
         turning_left  = keys[pygame.K_a]
         turning_right = keys[pygame.K_d]

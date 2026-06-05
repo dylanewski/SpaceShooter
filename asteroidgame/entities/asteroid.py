@@ -56,8 +56,8 @@ class Asteroid(CircleShape):
 
         asteroid1 = Asteroid(position1.x, position1.y, new_radius)
         asteroid2 = Asteroid(position2.x, position2.y, new_radius)
-        asteroid1.velocity = velocity1 * 1.2
-        asteroid2.velocity = velocity2 * 1.2
+        asteroid1.velocity = velocity1 * 0.6
+        asteroid2.velocity = velocity2 * 0.6
 
         self.kill()
         return [asteroid1, asteroid2]

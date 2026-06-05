@@ -1,6 +1,7 @@
 import pygame
 
-from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, INVINCIBILITY_TIME, PLAYER_RADIUS
+from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, INVINCIBILITY_TIME, PLAYER_RADIUS, SHOT_RADIUS
+from ..entities.shot import Shot
 from ..entities.xporb import XPOrb
 from ..entities.bigxporb import BigXPOrb
 from ..logger import log_event
@@ -45,8 +46,9 @@ def kill_boss(state, groups):
 # Shot collisions
 # ---------------------------------------------------------------------------
 
-def _apply_explosive(state, groups, s_pos):
-    exp_r  = EXPLOSION_RADIUS + (state.explosive_stacks - 1) * 20
+def _apply_explosive(state, groups, s_pos, shot_radius):
+    bullet_scale = shot_radius / SHOT_RADIUS   # 1.0 at base, grows with Bigger Bullets
+    exp_r  = int((EXPLOSION_RADIUS + (state.explosive_stacks - 1) * 20) * bullet_scale)
     splash = max(5, state.shot_damage // 3) * state.explosive_stacks
     spawn_explosion(s_pos.x, s_pos.y, exp_r // 2)
     state.explosion_visuals.append([s_pos.x, s_pos.y, exp_r, 0.0])
@@ -58,15 +60,25 @@ def _apply_explosive(state, groups, s_pos):
             if te.take_damage(splash): state.score += kill_enemy(te)
 
 
-def _bounce_shot(s, groups, exclude):
-    other = [t for t in list(groups['asteroids']) + list(groups['enemies'])
-             if t.alive() and t is not exclude]
-    if other:
-        nearest = min(other, key=lambda t: t.position.distance_to(s.position))
-        if nearest.position.distance_to(s.position) < RICOCHET_RANGE:
-            s.velocity = (nearest.position - s.position).normalize() * s.velocity.length()
-            return
-    s.kill()
+def _spawn_ricochets(state, groups, s):
+    """Fork up to ricochet_stacks new shots from the impact point, inheriting parent properties."""
+    parent_dmg   = s.damage if s.damage else state.shot_damage
+    ricochet_dmg = max(1, parent_dmg // 2)
+
+    candidates = sorted(
+        [t for t in list(groups['asteroids']) + list(groups['enemies'])
+         if t.alive() and t.position.distance_to(s.position) < RICOCHET_RANGE],
+        key=lambda t: t.position.distance_to(s.position),
+    )
+
+    for target in candidates[:state.ricochet_stacks]:
+        d = target.position - s.position
+        if d.length() == 0:
+            continue
+        r = Shot(s.position.x, s.position.y, d.normalize(), s.radius)
+        r.damage       = ricochet_dmg
+        r.bounces_left = 0      # no further ricocheting
+        r.fragment     = False  # can still trigger explosives
 
 
 def handle_shot_asteroid(state, groups):
@@ -77,12 +89,10 @@ def handle_shot_asteroid(state, groups):
             log_event("asteroid_shot")
             dmg = s.damage or state.shot_damage
             if state.explosive_stacks > 0 and not s.fragment:
-                _apply_explosive(state, groups, s.position)
+                _apply_explosive(state, groups, s.position, s.radius)
             if s.bounces_left > 0:
-                s.bounces_left -= 1
-                _bounce_shot(s, groups, a)
-            else:
-                s.kill()
+                _spawn_ricochets(state, groups, s)
+            s.kill()
             if a.take_damage(dmg): state.score += kill_asteroid(a)
             else: spawn_hit_effect(a.position.x, a.position.y)
 
@@ -95,12 +105,10 @@ def handle_shot_enemy(state, groups):
             shot_vel = pygame.Vector2(s.velocity)
             dmg      = s.damage or state.shot_damage
             if state.explosive_stacks > 0 and not s.fragment:
-                _apply_explosive(state, groups, s.position)
+                _apply_explosive(state, groups, s.position, s.radius)
             if s.bounces_left > 0:
-                s.bounces_left -= 1
-                _bounce_shot(s, groups, e)
-            else:
-                s.kill()
+                _spawn_ricochets(state, groups, s)
+            s.kill()
             if e.take_damage(dmg): state.score += kill_enemy(e)
             else: spawn_hit_effect(e.position.x, e.position.y, shot_vel)
 

@@ -56,11 +56,8 @@ class Enemy(CircleShape):
 
         self.position += self.velocity * dt
 
-        if self.position.x < -self.radius:
-            self.position.x = SCREEN_WIDTH + self.radius
-        elif self.position.x > SCREEN_WIDTH + self.radius:
-            self.position.x = -self.radius
-        if self.position.y < -self.radius:
-            self.position.y = SCREEN_HEIGHT + self.radius
-        elif self.position.y > SCREEN_HEIGHT + self.radius:
-            self.position.y = -self.radius
+        # kill when well off-screen so junk drifts in and out cleanly (no wrap flash)
+        KILL_MARGIN = 300
+        if (self.position.x < -KILL_MARGIN or self.position.x > SCREEN_WIDTH + KILL_MARGIN or
+                self.position.y < -KILL_MARGIN or self.position.y > SCREEN_HEIGHT + KILL_MARGIN):
+            self.kill()
