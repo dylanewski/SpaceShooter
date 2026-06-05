@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 -m pip show pygame)"
+      "Bash(python3 -m pip show pygame)",
+      "Bash(python -c \"from asteroidgame.screens.game import run; print\\('OK'\\)\")",
+      "Bash(python3 -c \"from asteroidgame.screens.game import run; print\\('OK'\\)\")",
+      "Bash(python3 -m py_compile asteroidgame/screens/game.py asteroidgame/screens/game_state.py asteroidgame/screens/game_systems.py asteroidgame/screens/game_combat.py asteroidgame/screens/game_draw.py asteroidgame/screens/effects.py)"
     ]
   }
 }
