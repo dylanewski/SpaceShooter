@@ -51,9 +51,13 @@ class GameState:
         self.life_regen_timer = 0.0
 
         # ---- combo ----
-        self.combo_count       = 0
-        self.combo_timer       = 0.0
-        self.combo_shake_timer = 0.0
+        self.combo_count        = 0
+        self.combo_timer        = 0.0
+        self.combo_shake_timer  = 0.0
+        self.combo_fade_timer   = 0.0
+        self.combo_display_count = 0
+        self.combo_hud_particles = []
+        self.combo_particle_acc  = 0.0
 
         # ---- base stats ----
         self.shot_damage   = 10

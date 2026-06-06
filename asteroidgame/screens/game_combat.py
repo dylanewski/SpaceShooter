@@ -63,7 +63,7 @@ def _apply_explosive(state, groups, s_pos, shot_radius):
     state.explosion_visuals.append([s_pos.x, s_pos.y, exp_r, 0.0])
     for ta in list(groups['asteroids']):
         if ta.alive() and ta.position.distance_to(s_pos) < exp_r:
-            if ta.take_damage(splash): state.score += kill_asteroid(ta)
+            if ta.take_damage(splash): state.score += combo_kill(state, kill_asteroid, ta)
     for te in list(groups['enemies']):
         if te.alive() and te.position.distance_to(s_pos) < exp_r:
             if te.take_damage(splash): state.score += combo_kill(state, kill_enemy, te)
@@ -108,7 +108,7 @@ def handle_shot_asteroid(state, groups):
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
-            if a.take_damage(dmg): state.score += kill_asteroid(a)
+            if a.take_damage(dmg): state.score += combo_kill(state, kill_asteroid, a)
             else: spawn_hit_effect(a.position.x, a.position.y)
 
 
@@ -178,7 +178,7 @@ def handle_missile_enemies(state, groups):
         for a in list(groups['asteroids']):
             if m.alive() and a.alive() and m.position.distance_to(a.position) < m.radius + a.radius:
                 dmg = max(7, (max(20, 4 * state.level) + (state.missile_stacks - 1) * 5) // 3)
-                if a.take_damage(dmg): state.score += kill_asteroid(a)
+                if a.take_damage(dmg): state.score += combo_kill(state, kill_asteroid, a)
                 spawn_explosion(m.position.x, m.position.y, 15)
                 m.kill()
                 break
@@ -235,7 +235,7 @@ def handle_blob_damage(state, groups, dt):
         b = _touching(a.position, a.radius)
         if b and state.game_time - state.blob_damage_cooldowns.get(id(a), -999) >= BLOB_TICK:
             state.blob_damage_cooldowns[id(a)] = state.game_time
-            if a.take_damage(int(b.damage_per_second)): state.score += kill_asteroid(a)
+            if a.take_damage(int(b.damage_per_second)): state.score += combo_kill(state, kill_asteroid, a)
 
     for e in list(groups['enemies']):
         if not e.alive(): continue
@@ -283,7 +283,7 @@ def handle_plow(state, player, groups):
             plow_hit = True
             hit_pos  = pygame.Vector2(a.position)
             state.plow_invincibility_timer = 0.5
-            if a.take_damage(plow_dmg): state.score += kill_asteroid(a)
+            if a.take_damage(plow_dmg): state.score += combo_kill(state, kill_asteroid, a)
             else: spawn_hit_effect(nose.x, nose.y)
     for e in list(groups['enemies']):
         if e.alive() and not plow_hit and nose.distance_to(e.position) < PLOW_R + e.radius:

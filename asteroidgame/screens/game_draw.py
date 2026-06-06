@@ -12,7 +12,7 @@ _combo_font = None
 def _get_combo_font():
     global _combo_font
     if _combo_font is None:
-        _combo_font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 52)
+        _combo_font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 72)
     return _combo_font
 
 
@@ -35,6 +35,7 @@ def draw_frame(game_surf, screen, state, player, groups, surfs, fonts, ui, dt):
     _draw_bolt_visuals(game_surf, state, dt)
     _draw_boss_ui(game_surf, state, ui['cx'], fonts['main'], ui['boss_excl_image'], dt)
     _draw_hud(game_surf, state, player, fonts, ui)
+    _draw_combo(game_surf, state, dt)
 
     if state.shake_timer > 0:
         state.shake_timer = max(0.0, state.shake_timer - dt)
@@ -177,6 +178,68 @@ def _draw_laser_beam(surf, state, laser_surf, dt):
     surf.blit(laser_surf, (0, 0))
 
 
+_COMBO_FADE_DUR = 0.5
+
+
+def _draw_combo(surf, state, dt):
+    if state.combo_count > 0:
+        display_count = state.combo_count
+        alpha = 255
+    elif state.combo_fade_timer > 0:
+        display_count = state.combo_display_count
+        alpha = int(255 * state.combo_fade_timer / _COMBO_FADE_DUR)
+    else:
+        state.combo_hud_particles.clear()
+        return
+
+    t     = min(1.0, display_count / 100.0)
+    color = (255, int(255 - 35 * t), int(255 * (1 - t)))
+
+    ox, oy = 0, 0
+    if state.combo_shake_timer > 0:
+        mag = int(7 * state.combo_shake_timer / 0.25)
+        ox  = random.randint(-mag, mag)
+        oy  = random.randint(-mag, mag)
+
+    combo_surf = _get_combo_font().render(f"{display_count}x", True, color)
+    if alpha < 255:
+        faded = pygame.Surface(combo_surf.get_size(), pygame.SRCALPHA)
+        faded.blit(combo_surf, (0, 0))
+        faded.fill((255, 255, 255, alpha), special_flags=pygame.BLEND_RGBA_MULT)
+        combo_surf = faded
+    rect = combo_surf.get_rect(bottomright=(SCREEN_WIDTH - 80 + ox, SCREEN_HEIGHT - 20 + oy))
+
+    # spawn particles rising from the top of the number (only while active)
+    if state.combo_count > 0 and t > 0.05:
+        state.combo_particle_acc += dt * t * 15
+        while state.combo_particle_acc >= 1.0:
+            state.combo_particle_acc -= 1.0
+            state.combo_hud_particles.append([
+                rect.left + random.uniform(0, rect.width),
+                float(rect.top),
+                random.uniform(-25, 25),
+                random.uniform(-90, -40),
+                random.uniform(0.3, 0.7),
+                0.0,  # max_life filled below
+            ])
+            state.combo_hud_particles[-1][5] = state.combo_hud_particles[-1][4]
+
+    # update and draw particles
+    alive = []
+    for p in state.combo_hud_particles:
+        p[0] += p[2] * dt
+        p[1] += p[3] * dt
+        p[4] -= dt
+        if p[4] > 0:
+            alive.append(p)
+            frac = p[4] / p[5]
+            pcol = (int(color[0] * frac), int(color[1] * frac), int(color[2] * frac))
+            pygame.draw.circle(surf, pcol, (int(p[0]), int(p[1])), max(1, int(3 * frac)))
+    state.combo_hud_particles[:] = alive
+
+    surf.blit(combo_surf, rect)
+
+
 def _draw_bolt_visuals(surf, state, dt):
     next_bolts = []
     for bv in state.bolt_visuals:
@@ -236,15 +299,19 @@ def _draw_hud(surf, state, player, fonts, ui):
 
     # danger border when low health
     if state.lives == 1:
-        pulse = (math.sin(state.game_time * 2.5) + 1) / 2
-        bw    = 22
-        da    = int(40 + pulse * 130)
+        pulse       = (math.sin(state.game_time * 2.5) + 1) / 2
+        bw          = 48
+        max_alpha   = int(40 + pulse * 160)
         danger_surf = ui['danger']
         danger_surf.fill((0, 0, 0, 0))
-        pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, 0, SCREEN_WIDTH, bw))
-        pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, SCREEN_HEIGHT - bw, SCREEN_WIDTH, bw))
-        pygame.draw.rect(danger_surf, (220, 0, 0, da), (0, 0, bw, SCREEN_HEIGHT))
-        pygame.draw.rect(danger_surf, (220, 0, 0, da), (SCREEN_WIDTH - bw, 0, bw, SCREEN_HEIGHT))
+        for i in range(bw):
+            t     = ((bw - i) / bw) ** 1.5
+            alpha = int(max_alpha * t)
+            col   = (220, 0, 0, alpha)
+            pygame.draw.line(danger_surf, col, (0, i),                    (SCREEN_WIDTH, i))
+            pygame.draw.line(danger_surf, col, (0, SCREEN_HEIGHT - 1 - i),(SCREEN_WIDTH, SCREEN_HEIGHT - 1 - i))
+            pygame.draw.line(danger_surf, col, (i, 0),                    (i, SCREEN_HEIGHT))
+            pygame.draw.line(danger_surf, col, (SCREEN_WIDTH - 1 - i, 0), (SCREEN_WIDTH - 1 - i, SCREEN_HEIGHT))
         surf.blit(danger_surf, (0, 0))
         if int(state.game_time * 2) % 2 == 0:
             dtxt = fonts['danger'].render("DANGER", True, (220, 0, 0))
@@ -308,17 +375,6 @@ def _draw_hud(surf, state, player, fonts, ui):
     pygame.draw.rect(surf, bar_color,     (bar_x, bar_bot - fill_h, bar_w, fill_h))
     pygame.draw.rect(surf, (120, 120, 120), (bar_x, bar_top, bar_w, bar_h), 1)
 
-    if state.combo_count > 0:
-        t     = min(1.0, state.combo_count / 100.0)
-        color = (255, int(255 - 35 * t), int(255 * (1 - t)))
-        ox, oy = 0, 0
-        if state.combo_shake_timer > 0:
-            mag = int(7 * state.combo_shake_timer / 0.25)
-            ox  = random.randint(-mag, mag)
-            oy  = random.randint(-mag, mag)
-        combo_txt = _get_combo_font().render(str(state.combo_count), True, color)
-        surf.blit(combo_txt, combo_txt.get_rect(
-            bottomright=(SCREEN_WIDTH - 20 + ox, SCREEN_HEIGHT - 20 + oy)))
 
 
 def draw_pause_overlay(screen, state, big_font, fonts, cx, cy, pause_overlay,

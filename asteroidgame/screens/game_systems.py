@@ -36,7 +36,11 @@ def update_timers(state, dt):
     if state.combo_timer > 0:
         state.combo_timer = max(0.0, state.combo_timer - dt)
         if state.combo_timer == 0.0:
-            state.combo_count = 0
+            state.combo_display_count = state.combo_count
+            state.combo_count         = 0
+            state.combo_fade_timer    = 0.5
+    if state.combo_fade_timer > 0:
+        state.combo_fade_timer = max(0.0, state.combo_fade_timer - dt)
     if state.combo_shake_timer > 0:
         state.combo_shake_timer = max(0.0, state.combo_shake_timer - dt)
 
@@ -223,7 +227,7 @@ def handle_bolt_dash(state, player, groups):
             if isinstance(target, Centibomb):
                 state.score += combo_kill(state, kill_centibomb, target)
             elif isinstance(target, Asteroid):
-                state.score += kill_asteroid(target)
+                state.score += combo_kill(state, kill_asteroid, target)
             else:
                 state.score += combo_kill(state, kill_enemy, target)
         else:
@@ -287,7 +291,7 @@ def handle_pulse(state, player, groups, dt):
         for a in list(groups['asteroids']):
             if a.alive() and a.position.distance_to(player.position) <= PULSE_RADIUS:
                 if a.take_damage(dmg):
-                    state.score += kill_asteroid(a)
+                    state.score += combo_kill(state, kill_asteroid, a)
         for e in list(groups['enemies']):
             if e.alive() and e.position.distance_to(player.position) <= PULSE_RADIUS:
                 if e.take_damage(dmg):
@@ -369,7 +373,7 @@ def handle_vortex(state, player, groups, dt):
             vdmg = int(v.damage_per_second)
             for a in list(groups['asteroids']):
                 if a.alive() and a.position.distance_to(v.position) < v.pull_radius:
-                    if a.take_damage(vdmg): state.score += kill_asteroid(a)
+                    if a.take_damage(vdmg): state.score += combo_kill(state, kill_asteroid, a)
             for e in list(groups['enemies']):
                 if e.alive() and e.position.distance_to(v.position) < v.pull_radius:
                     if e.take_damage(vdmg): state.score += combo_kill(state, kill_enemy, e)
@@ -424,7 +428,7 @@ def handle_laser_ability(state, player, groups, dt):
         from .effects import ray_hits
         for a in list(groups['asteroids']):
             if a.alive() and ray_hits(state.laser_origin, state.laser_direction, a.position, a.radius):
-                if a.take_damage(laser_dmg): state.score += kill_asteroid(a)
+                if a.take_damage(laser_dmg): state.score += combo_kill(state, kill_asteroid, a)
                 else: spawn_hit_effect(a.position.x, a.position.y)
         for e in list(groups['enemies']):
             if e.alive() and ray_hits(state.laser_origin, state.laser_direction, e.position, e.radius):

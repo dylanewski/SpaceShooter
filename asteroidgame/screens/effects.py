@@ -78,10 +78,12 @@ def combo_kill(state, kill_fn, entity) -> int:
     result = kill_fn(entity)
     if result:
         state.combo_count += 1
-        state.combo_timer  = 1.0
+        state.combo_timer  = 5.0
         if state.combo_count in _COMBO_MILESTONES:
             state.award_xp(state.combo_count)
-            state.combo_shake_timer = 0.25
+            state.combo_shake_timer = max(state.combo_shake_timer, 0.25)
+        else:
+            state.combo_shake_timer = max(state.combo_shake_timer, 0.08)
     return result
 
 
