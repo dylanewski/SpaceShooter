@@ -55,10 +55,11 @@ def kill_boss(state, groups):
 # Shot collisions
 # ---------------------------------------------------------------------------
 
-def _apply_explosive(state, groups, s_pos, shot_radius):
-    bullet_scale = shot_radius / SHOT_RADIUS   # 1.0 at base, grows with Bigger Bullets
-    exp_r  = int((EXPLOSION_RADIUS + (state.explosive_stacks - 1) * 20) * bullet_scale)
-    splash = max(5, state.shot_damage // 3) * state.explosive_stacks
+def _apply_explosive(state, groups, s_pos, shot_radius, explosive_override=None):
+    stacks       = explosive_override if explosive_override is not None else state.explosive_stacks
+    bullet_scale = shot_radius / SHOT_RADIUS
+    exp_r  = int((EXPLOSION_RADIUS + (stacks - 1) * 20) * bullet_scale)
+    splash = max(5, state.shot_damage // 3) * stacks
     spawn_explosion(s_pos.x, s_pos.y, exp_r // 2)
     state.explosion_visuals.append([s_pos.x, s_pos.y, exp_r, 0.0])
     for ta in list(groups['asteroids']):
@@ -83,7 +84,7 @@ def _spawn_ricochets(state, groups, s):
         key=lambda t: t.position.distance_to(s.position),
     )
 
-    for target in candidates[:state.ricochet_stacks]:
+    for target in candidates[:getattr(s, 'ricochet_limit', state.ricochet_stacks)]:
         d = target.position - s.position
         if d.length() == 0:
             continue
@@ -104,7 +105,7 @@ def handle_shot_asteroid(state, groups):
             if is_crit:
                 a.crit_flash_timer = CRIT_FLASH_DURATION
             if state.explosive_stacks > 0 and not s.fragment:
-                _apply_explosive(state, groups, s.position, s.radius)
+                _apply_explosive(state, groups, s.position, s.radius, getattr(s, 'explosive_limit', None))
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
@@ -123,7 +124,7 @@ def handle_shot_enemy(state, groups):
             if is_crit:
                 e.crit_flash_timer = CRIT_FLASH_DURATION
             if state.explosive_stacks > 0 and not s.fragment:
-                _apply_explosive(state, groups, s.position, s.radius)
+                _apply_explosive(state, groups, s.position, s.radius, getattr(s, 'explosive_limit', None))
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
@@ -142,7 +143,7 @@ def handle_shot_centibomb(state, groups):
             if is_crit:
                 c.crit_flash_timer = CRIT_FLASH_DURATION
             if state.explosive_stacks > 0 and not s.fragment:
-                _apply_explosive(state, groups, s.position, s.radius)
+                _apply_explosive(state, groups, s.position, s.radius, getattr(s, 'explosive_limit', None))
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()

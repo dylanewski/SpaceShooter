@@ -77,8 +77,9 @@ _COMBO_MILESTONES = {10, 25, 50, 100, 250, 500, 1000}
 def combo_kill(state, kill_fn, entity) -> int:
     result = kill_fn(entity)
     if result:
-        state.combo_count += 1
-        state.combo_timer  = 5.0
+        state.combo_count   += 1
+        state.combo_timer    = 5.0
+        state.highest_combo  = max(state.highest_combo, state.combo_count)
         if state.combo_count in _COMBO_MILESTONES:
             state.award_xp(state.combo_count)
             state.combo_shake_timer = max(state.combo_shake_timer, 0.25)

@@ -10,16 +10,17 @@ def main():
     font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 36)
     big_font = pygame.font.Font("assets/fonts/Pixelout Personal Use Only.ttf", 72)
 
-    state = "home"
-    score = 0
+    state         = "home"
+    score         = 0
+    highest_combo = 0
 
     while True:
         if state == "home":
             state = home.run(screen, clock)
         elif state == "game":
-            state, score = game.run(screen, clock, font, big_font)
+            state, score, highest_combo = game.run(screen, clock, font, big_font)
         elif state == "game_over":
-            state = game_over.run(screen, clock, font, big_font, score)
+            state = game_over.run(screen, clock, font, big_font, score, highest_combo)
         elif state == "quit":
             return
 

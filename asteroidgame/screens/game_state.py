@@ -10,7 +10,7 @@ PULSE_RADIUS    = 150
 SHAKE_DURATION  = 0.3
 SHAKE_INTENSITY = 8
 RICOCHET_RANGE  = 200
-EXPLOSION_RADIUS = 96
+EXPLOSION_RADIUS = 67
 DEATH_DURATION  = 1.6
 BUDDY_DISTANCE  = 65
 
@@ -51,6 +51,7 @@ class GameState:
         self.life_regen_timer = 0.0
 
         # ---- combo ----
+        self.highest_combo      = 0
         self.combo_count        = 0
         self.combo_timer        = 0.0
         self.combo_shake_timer  = 0.0
@@ -63,6 +64,13 @@ class GameState:
         self.shot_damage   = 10
         self.xp_multiplier = 1.0
         self.crit_chance   = 3
+
+        # ---- upgrade display stacks (no other runtime use) ----
+        self.rapid_fire_stacks  = 0
+        self.caliber_stacks     = 0
+        self.speed_stacks       = 0
+        self.quick_regen_stacks = 0
+        self.xp_gen_stacks      = 0
 
         # ---- shield ----
         self.shield_stacks        = 0
@@ -83,9 +91,10 @@ class GameState:
         self.blob_damage_cooldowns = {}
 
         # ---- combat modifiers ----
-        self.homing_strength   = 0
-        self.ricochet_stacks   = 0
-        self.explosive_stacks  = 0
+        self.homing_strength        = 0
+        self.ricochet_stacks        = 0
+        self.explosive_stacks       = 0
+        self.bigger_bullets_stacks  = 0
         self.explosion_visuals = []   # list of [x, y, max_r, age]
 
         # ---- bolt dash ----

@@ -209,11 +209,10 @@ def handle_bolt_dash(state, player, groups):
     from ..entities.centibomb import Centibomb
     from ..entities.asteroid import Asteroid
 
-    bolt_dmg    = max(20, 3 * state.level)
-    level_bonus = (state.level - 1) // 4
-    bolt_min    = 1 + (state.bolt_dash_stacks - 1) + level_bonus
-    bolt_max    = 3 + (state.bolt_dash_stacks - 1) + level_bonus
-    bolt_count  = random.randint(max(1, bolt_min), bolt_max)
+    bolt_dmg   = max(20, 3 * state.level)
+    bolt_min   = 1 + (state.bolt_dash_stacks - 1)
+    bolt_max   = 3 + (state.bolt_dash_stacks - 1)
+    bolt_count = random.randint(bolt_min, bolt_max)
     candidates  = sorted(
         [t for t in list(groups['asteroids']) + list(groups['enemies']) + list(groups['centibombs'])
          if t.alive() and t.position.distance_to(player.position) <= BOLT_RANGE],
@@ -456,10 +455,15 @@ def resolve_buddy_pre_update(state, player, groups):
             break
 
     if state.buddy_stacks > 0 and player.just_fired:
-        buddy_dmg = max(1, int(state.shot_damage * (0.5 + (state.buddy_stacks - 1) * 0.07)))
+        buddy_dmg = max(1, int(state.shot_damage * (1/3 + (state.buddy_stacks - 1) * 0.07)))
         s         = Shot(state.buddy_delayed_pos.x, state.buddy_delayed_pos.y,
                          pygame.Vector2(0, 1).rotate(player.rotation), player.shot_radius)
-        s.damage  = buddy_dmg
+        s.damage        = buddy_dmg
+        s.is_buddy      = True
+        s.ricochet_limit  = max(1, state.ricochet_stacks  // 3) if state.ricochet_stacks  > 0 else 0
+        s.explosive_limit = max(1, state.explosive_stacks // 3) if state.explosive_stacks > 0 else 0
+        if s.ricochet_limit > 0:
+            s.bounces_left = 1
 
     if state.homing_strength > 0:
         TURN_SPEED   = state.homing_strength * 15
@@ -489,7 +493,7 @@ def tag_ricochet(state, player, groups, shots_before_update):
     """Called AFTER updatable.update() — uses this frame's just_fired."""
     if state.ricochet_stacks > 0 and player.just_fired:
         for s in groups['shots']:
-            if s not in shots_before_update:
+            if s not in shots_before_update and not getattr(s, 'is_buddy', False):
                 s.bounces_left = 1  # flag: spawn ricochets on hit (count = state.ricochet_stacks)
 
 
@@ -523,8 +527,10 @@ def steer_homing(state, player, groups, dt):
 def apply_upgrade(state, player, name):
     if name == "Rapid Fire":
         player.shot_cooldown_time *= 0.9
+        state.rapid_fire_stacks += 1
     elif name == "Higher Caliber Rounds":
         state.shot_damage += 6
+        state.caliber_stacks += 1
     elif name == "Shield":
         state.shield_stacks += 1
         state.shield_recharge_time = 30.0 * (0.7 ** (state.shield_stacks - 1))
@@ -532,13 +538,18 @@ def apply_upgrade(state, player, name):
         state.shield_age    = 0.0
     elif name == "XP Generator":
         state.xp_multiplier *= 1.1
+        state.xp_gen_stacks += 1
     elif name == "Bigger Bullets":
-        player.shot_radius  = int(player.shot_radius * 1.5)
-        state.shot_damage   = int(state.shot_damage * 1.05)
+        state.bigger_bullets_stacks += 1
+        mult = 1.5 if state.bigger_bullets_stacks == 1 else (1 + 1/3)
+        player.shot_radius = int(player.shot_radius * mult)
+        state.shot_damage  = int(state.shot_damage * 1.05)
     elif name == "Speed Boost":
         player.speed *= 1.2
+        state.speed_stacks += 1
     elif name == "Quick Regen":
         state.life_regen_time *= 0.75
+        state.quick_regen_stacks += 1
     elif name == "Pulse Wave":
         state.pulse_stacks  += 1
         state.pulse_cooldown = max(2.0, 5.0 - (state.pulse_stacks - 1) * 0.5)

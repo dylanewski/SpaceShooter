@@ -7,13 +7,51 @@ from ..ui import draw_xp_bar, draw_lives, draw_button
 from ..entities.boss import BOSS_MAX_HP
 from .game_state import SHAKE_DURATION, SHAKE_INTENSITY, PULSE_RADIUS
 
-_combo_font = None
+_combo_font          = None
+_death_lbl_font      = None
+_death_score_font    = None
+_pause_upgrade_font  = None
+_pause_upgrade_hdr   = None
+_pause_title_font    = None
+_pause_btn_font      = None
 
 def _get_combo_font():
     global _combo_font
     if _combo_font is None:
         _combo_font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 72)
     return _combo_font
+
+def _get_pause_upgrade_font():
+    global _pause_upgrade_font
+    if _pause_upgrade_font is None:
+        _pause_upgrade_font = pygame.font.Font("assets/fonts/Symtext.ttf", 18)
+    return _pause_upgrade_font
+
+def _get_pause_upgrade_hdr():
+    global _pause_upgrade_hdr
+    if _pause_upgrade_hdr is None:
+        _pause_upgrade_hdr = pygame.font.Font("assets/fonts/Symtext.ttf", 32)
+    return _pause_upgrade_hdr
+
+def _get_pause_title_font():
+    global _pause_title_font
+    if _pause_title_font is None:
+        _pause_title_font = pygame.font.Font("assets/fonts/Symtext.ttf", 72)
+    return _pause_title_font
+
+def _get_pause_btn_font():
+    global _pause_btn_font
+    if _pause_btn_font is None:
+        _pause_btn_font = pygame.font.Font("assets/fonts/Symtext.ttf", 36)
+    return _pause_btn_font
+
+
+def _get_death_fonts():
+    global _death_lbl_font, _death_score_font
+    if _death_lbl_font is None:
+        _death_lbl_font   = pygame.font.Font("assets/fonts/Symtext.ttf", 22)
+        _death_score_font = pygame.font.Font("assets/fonts/8-bitanco.ttf", 80)
+    return _death_lbl_font, _death_score_font
 
 
 # ---------------------------------------------------------------------------
@@ -307,11 +345,8 @@ def _draw_hud(surf, state, player, fonts, ui):
         for i in range(bw):
             t     = ((bw - i) / bw) ** 1.5
             alpha = int(max_alpha * t)
-            col   = (220, 0, 0, alpha)
-            pygame.draw.line(danger_surf, col, (0, i),                    (SCREEN_WIDTH, i))
-            pygame.draw.line(danger_surf, col, (0, SCREEN_HEIGHT - 1 - i),(SCREEN_WIDTH, SCREEN_HEIGHT - 1 - i))
-            pygame.draw.line(danger_surf, col, (i, 0),                    (i, SCREEN_HEIGHT))
-            pygame.draw.line(danger_surf, col, (SCREEN_WIDTH - 1 - i, 0), (SCREEN_WIDTH - 1 - i, SCREEN_HEIGHT))
+            pygame.draw.rect(danger_surf, (220, 0, 0, alpha),
+                             (i, i, SCREEN_WIDTH - 2 * i, SCREEN_HEIGHT - 2 * i), 1)
         surf.blit(danger_surf, (0, 0))
         if int(state.game_time * 2) % 2 == 0:
             dtxt = fonts['danger'].render("DANGER", True, (220, 0, 0))
@@ -377,11 +412,59 @@ def _draw_hud(surf, state, player, fonts, ui):
 
 
 
+def _draw_pause_upgrade_list(screen, state):
+    entries = []
+    if state.rapid_fire_stacks > 0:     entries.append(("Rapid Fire",    state.rapid_fire_stacks))
+    if state.caliber_stacks > 0:        entries.append(("Hi Caliber",    state.caliber_stacks))
+    if state.bigger_bullets_stacks > 0: entries.append(("Big Bullets",   state.bigger_bullets_stacks))
+    if state.speed_stacks > 0:          entries.append(("Speed Boost",   state.speed_stacks))
+    if state.quick_regen_stacks > 0:    entries.append(("Quick Regen",   state.quick_regen_stacks))
+    if state.xp_gen_stacks > 0:         entries.append(("XP Generator",  state.xp_gen_stacks))
+    if state.ricochet_stacks > 0:       entries.append(("Ricochet",      state.ricochet_stacks))
+    if state.explosive_stacks > 0:      entries.append(("Explosive",     state.explosive_stacks))
+    if state.crit_chance > 3:           entries.append(("Crit Chance",   (state.crit_chance - 3) // 10))
+    if state.homing_strength > 0:       entries.append(("Homing",        state.homing_strength))
+    if state.shield_stacks > 0:         entries.append(("Shield",        state.shield_stacks))
+    if state.pulse_stacks > 0:          entries.append(("Pulse Wave",    state.pulse_stacks))
+    if state.afterburn_stacks > 0:      entries.append(("Afterburn",     state.afterburn_stacks))
+    if state.plow_stacks > 0:           entries.append(("Plow",          state.plow_stacks))
+    if state.buddy_stacks > 0:          entries.append(("Lil Buddy",     state.buddy_stacks))
+    if state.vortex_stacks > 0:         entries.append(("Vortex",        state.vortex_stacks))
+    if state.bolt_dash_stacks > 0:      entries.append(("Bolt Dash",     state.bolt_dash_stacks))
+    if state.missile_stacks > 0:        entries.append(("Missiles",      state.missile_stacks))
+    if state.laser_stacks > 0:          entries.append(("Laser",         state.laser_stacks))
+
+    if not entries:
+        return
+
+    ufont   = _get_pause_upgrade_font()
+    COL_W   = 160
+    ROW_H   = 28
+    COLS    = 4
+    per_col = (len(entries) + COLS - 1) // COLS
+    total_w = COLS * COL_W
+    start_x = SCREEN_WIDTH // 2 - total_w // 2
+    start_y = 90
+
+    hdr = _get_pause_upgrade_hdr().render("UPGRADES", True, (255, 255, 255))
+    screen.blit(hdr, hdr.get_rect(midbottom=(SCREEN_WIDTH // 2, start_y - 8)))
+
+    for i, (name, stacks) in enumerate(entries):
+        col     = i // per_col
+        row     = i % per_col
+        x       = start_x + col * COL_W
+        y       = start_y + row * ROW_H
+        name_s  = ufont.render(name, True, (210, 210, 210))
+        stack_s = ufont.render(f"{stacks}x", True, (255, 220, 60))
+        screen.blit(name_s,  (x, y))
+        screen.blit(stack_s, (x + COL_W - stack_s.get_width() - 6, y))
+
+
 def draw_pause_overlay(screen, state, big_font, fonts, cx, cy, pause_overlay,
                         resume_btn, end_game_btn, pause_home_btn):
     screen.blit(pause_overlay, (0, 0))
-    lbl = big_font.render("PAUSED", True, "white")
-    screen.blit(lbl, lbl.get_rect(center=(cx, cy - 100)))
-    draw_button(screen, fonts['main'], resume_btn,     "Resume")
-    draw_button(screen, fonts['main'], end_game_btn,   "End Game")
-    draw_button(screen, fonts['main'], pause_home_btn, "Home")
+    _draw_pause_upgrade_list(screen, state)
+    btn_font = _get_pause_btn_font()
+    draw_button(screen, btn_font, resume_btn,     "Resume")
+    draw_button(screen, btn_font, end_game_btn,   "End Game")
+    draw_button(screen, btn_font, pause_home_btn, "Home")

@@ -83,9 +83,9 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     skull_image = pygame.transform.scale(_skull_raw, (34, 34))
 
     # --- pause buttons ---
-    resume_btn     = make_button((cx, cy - 20))
-    end_game_btn   = make_button((cx, cy + 60))
-    pause_home_btn = make_button((cx, cy + 140))
+    resume_btn     = make_button((cx, 420))
+    end_game_btn   = make_button((cx, 500))
+    pause_home_btn = make_button((cx, 580))
 
     # --- sprite groups ---
     updatable   = pygame.sprite.Group()
@@ -164,7 +164,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         pause_action = None
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return "quit", state.score
+                return "quit", state.score, state.highest_combo
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 paused = not paused
             if paused and event.type == pygame.MOUSEBUTTONDOWN:
@@ -176,7 +176,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
                     pause_action = "home"
 
         if pause_action:
-            return pause_action, state.score
+            return pause_action, state.score, state.highest_combo
 
         game_surf.fill("black")
 
@@ -186,7 +186,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             draw_death_frame(game_surf, screen, state, groups, surfs, dt)
             pygame.display.flip()
             if state.death_timer >= DEATH_DURATION:
-                return "game_over", state.score
+                return "game_over", state.score, state.highest_combo
             continue
 
         # --- update (skipped while paused) ---
@@ -249,7 +249,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             state.level_up_pending = False
             chosen = upgrade.run(screen, clock, font, screen.copy())
             if chosen == "quit":
-                return "quit", state.score
+                return "quit", state.score, state.highest_combo
             apply_upgrade(state, player, chosen)
 
         if paused:
