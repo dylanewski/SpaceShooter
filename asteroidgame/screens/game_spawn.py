@@ -12,7 +12,7 @@ SHOOTER_SPAWN_INTERVAL   = 35.0
 
 
 def handle_enemy_spawn(state, groups, cx, cy, dt):
-    if state.level < 2 or state.boss_intro_active or state.boss_active:
+    if state.game_time < 60.0 or state.boss_intro_active or state.boss_active:
         return
     state.enemy_spawn_timer += dt
     if state.enemy_spawn_timer >= state.enemy_spawn_rate:
@@ -47,7 +47,7 @@ def handle_xp_star_spawn(state, dt):
 
 
 def handle_centibomb_spawn(state, groups, cx, cy, dt):
-    if state.level < 3 or state.boss_intro_active or state.boss_active:
+    if state.game_time < 120.0 or state.boss_intro_active or state.boss_active:
         return
     state.centibomb_spawn_timer += dt
     if state.centibomb_spawn_timer < CENTIBOMB_SPAWN_INTERVAL:
@@ -65,7 +65,9 @@ def handle_centibomb_spawn(state, groups, cx, cy, dt):
 
 
 def handle_shooter_spawn(state, player, groups, cx, cy, dt):
-    if state.level < 4 or state.boss_intro_active or state.boss_active:
+    if state.game_phase < 2 or state.boss_intro_active or state.boss_active:
+        return
+    if (state.game_time - state.spawn_ramp_offset) < 60.0:
         return
     state.shooter_spawn_timer += dt
     if state.shooter_spawn_timer < SHOOTER_SPAWN_INTERVAL:

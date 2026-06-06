@@ -14,7 +14,7 @@ from .game_state import PULSE_RADIUS
 # Bolt dash helpers
 # ---------------------------------------------------------------------------
 
-BOLT_RANGE   = 350
+BOLT_RANGE   = 298
 BOLT_MAX_AGE = 0.35
 
 

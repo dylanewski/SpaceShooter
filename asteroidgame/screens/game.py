@@ -11,6 +11,7 @@ from ..entities.missile import Missile
 from ..entities.shot import Shot
 from ..entities.vortex import Vortex
 from ..entities.boss import Boss
+from ..entities.boss2 import Boss2
 from ..entities.boss_shot import BossShot
 from ..entities.centibomb import Centibomb
 from ..entities.mine import Mine
@@ -146,6 +147,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     Vortex.containers        = (updatable, vortexes)
     Missile.containers       = (updatable, missiles)
     Boss.containers          = (bosses,)
+    Boss2.containers         = (bosses,)
     BossShot.containers      = (updatable, drawable, boss_shots)
     Centibomb.containers     = (updatable, drawable, centibombs)
     Mine.containers          = (updatable, mines)

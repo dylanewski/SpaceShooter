@@ -67,10 +67,11 @@ def update_particle_trail(state, player, dt):
 # ---------------------------------------------------------------------------
 
 def handle_boss_trigger(state):
+    trigger = 240.0 if state.game_phase == 1 else 180.0
     if (not state.boss_triggered
             and not state.boss_intro_active
             and not state.boss_active
-            and (state.game_time - state.spawn_ramp_offset) >= 240.0):
+            and (state.game_time - state.spawn_ramp_offset) >= trigger):
         state.boss_intro_active = True
         state.boss_intro_timer  = 0.0
         state.boss_triggered    = True
@@ -86,21 +87,22 @@ def update_spawn_rates(state, asteroid_field):
         _ast_lo = ASTEROID_SPAWN_RATE_SECONDS / 2
         _enm_lo = ENEMY_SPAWN_RATE_MIN
     else:
-        _ramp   = 200.0
+        _ramp   = 160.0                          # faster pressure build than phase 1
         _ast_hi = ASTEROID_SPAWN_RATE_SECONDS * 8
-        _ast_lo = ASTEROID_SPAWN_RATE_SECONDS * 1.5
-        _enm_lo = ENEMY_SPAWN_RATE_MIN * 1.5
+        _ast_lo = ASTEROID_SPAWN_RATE_SECONDS    # cap at 0.8s (denser than phase 1)
+        _enm_lo = ENEMY_SPAWN_RATE_MIN * 1.25   # junk cap at 2.5s
     _t = min(1.0, (state.game_time - state.spawn_ramp_offset) / _ramp)
     asteroid_field.spawn_rate = _ast_hi + (_ast_lo - _ast_hi) * _t
     state.enemy_spawn_rate    = ENEMY_SPAWN_RATE_START + (_enm_lo - ENEMY_SPAWN_RATE_START) * _t
 
 
 def handle_boss_intro(state, groups, player, cx, cy, dt):
-    from ..entities.boss import Boss
+    from ..entities.boss  import Boss
+    from ..entities.boss2 import Boss2
     if not state.boss_intro_active:
         return
     state.boss_intro_timer += dt
-    FLEE_SPEED = 250
+    FLEE_SPEED = 200
     OFFSCREEN  = 150
     center     = pygame.Vector2(cx, cy)
     for a in list(groups['asteroids']):
@@ -124,10 +126,13 @@ def handle_boss_intro(state, groups, player, cx, cy, dt):
             if (c.position.x < -OFFSCREEN or c.position.x > SCREEN_WIDTH + OFFSCREEN or
                     c.position.y < -OFFSCREEN or c.position.y > SCREEN_HEIGHT + OFFSCREEN):
                 c.kill()
-    if state.boss_intro_timer >= 3.0:
+    if state.boss_intro_timer >= 5.0:
         state.boss_intro_active = False
         state.boss_active       = True
-        state.current_boss      = Boss(cx, cy, player)
+        if state.game_phase == 2:
+            state.current_boss = Boss2(cx, cy, player)
+        else:
+            state.current_boss = Boss(cx, cy, player)
         state.boss_hp_visual    = 1.0
         for a in list(groups['asteroids']): a.kill()
         for e in list(groups['enemies']):   e.kill()

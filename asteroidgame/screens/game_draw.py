@@ -4,7 +4,8 @@ import pygame
 
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, PLAYER_RADIUS
 from ..ui import draw_xp_bar, draw_lives, draw_button
-from ..entities.boss import BOSS_MAX_HP
+from ..entities.boss  import BOSS_MAX_HP
+from ..entities.boss2 import BOSS2_MAX_HP
 from .game_state import SHAKE_DURATION, SHAKE_INTENSITY, PULSE_RADIUS
 
 _UPGRADE_RARITY_COLORS = {
@@ -330,7 +331,8 @@ def _draw_bolt_visuals(surf, state, dt):
 
 def _draw_boss_ui(surf, state, cx, font, boss_excl_image, dt):
     if state.boss_active and state.current_boss is not None:
-        hp_frac = max(0.0, state.current_boss.health / BOSS_MAX_HP)
+        max_hp  = BOSS2_MAX_HP if state.game_phase == 2 else BOSS_MAX_HP
+        hp_frac = max(0.0, state.current_boss.health / max_hp)
 
         # ghost bar lags behind real HP — drains slowly so the gap is visible
         if state.boss_hp_visual > hp_frac:
@@ -347,12 +349,12 @@ def _draw_boss_ui(surf, state, cx, font, boss_excl_image, dt):
         pygame.draw.rect(surf, (200, 20, 20), (bx, by, int(BAR_W * hp_frac), BAR_H))              # real HP (deep vivid red)
         pygame.draw.rect(surf, (220, 30, 30), (bx, by, BAR_W, BAR_H), 2)                           # border
 
-        _BOSS_NAMES = {1: "Mechipede"}
+        _BOSS_NAMES = {1: "Mechipede", 2: "???"}
         boss_name = _BOSS_NAMES.get(state.game_phase, "BOSS")
         blbl = font.render(boss_name, True, (220, 30, 30))
         surf.blit(blbl, blbl.get_rect(midbottom=(cx, by - 4)))
 
-    if state.boss_intro_active and int(state.boss_intro_timer * 2) % 2 == 0:
+    if state.boss_intro_active:
         if boss_excl_image is not None:
             surf.blit(boss_excl_image, boss_excl_image.get_rect(center=(cx, SCREEN_HEIGHT // 2)))
 
