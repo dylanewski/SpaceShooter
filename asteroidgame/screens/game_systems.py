@@ -201,8 +201,9 @@ def _gen_bolt_pts(x1, y1, x2, y2, segments=8):
 def handle_bolt_dash(state, player, groups):
     if not player.just_dashed or state.bolt_dash_stacks == 0:
         return
-    from .effects import kill_enemy, kill_centibomb, combo_kill, spawn_hit_effect
+    from .effects import kill_asteroid, kill_enemy, kill_centibomb, combo_kill, spawn_hit_effect
     from ..entities.centibomb import Centibomb
+    from ..entities.asteroid import Asteroid
 
     bolt_dmg    = max(20, 3 * state.level)
     level_bonus = (state.level - 1) // 4
@@ -210,7 +211,7 @@ def handle_bolt_dash(state, player, groups):
     bolt_max    = 3 + (state.bolt_dash_stacks - 1) + level_bonus
     bolt_count  = random.randint(max(1, bolt_min), bolt_max)
     candidates  = sorted(
-        [t for t in list(groups['enemies']) + list(groups['centibombs'])
+        [t for t in list(groups['asteroids']) + list(groups['enemies']) + list(groups['centibombs'])
          if t.alive() and t.position.distance_to(player.position) <= BOLT_RANGE],
         key=lambda t: t.position.distance_to(player.position),
     )
@@ -219,8 +220,12 @@ def handle_bolt_dash(state, player, groups):
                             target.position.x, target.position.y)
         state.bolt_visuals.append({'pts': pts, 'age': 0.0, 'max_age': BOLT_MAX_AGE})
         if target.take_damage(bolt_dmg):
-            kill_fn = kill_centibomb if isinstance(target, Centibomb) else kill_enemy
-            state.score += combo_kill(state, kill_fn, target)
+            if isinstance(target, Centibomb):
+                state.score += combo_kill(state, kill_centibomb, target)
+            elif isinstance(target, Asteroid):
+                state.score += kill_asteroid(target)
+            else:
+                state.score += combo_kill(state, kill_enemy, target)
         else:
             spawn_hit_effect(target.position.x, target.position.y)
 
