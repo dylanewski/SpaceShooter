@@ -63,11 +63,22 @@ def kill_centibomb(c) -> int:
     return 1
 
 
+def kill_shooter(s) -> int:
+    from ..entities.bigxporb import BigXPOrb
+    spawn_explosion(s.position.x, s.position.y, s._full_radius)
+    BigXPOrb(s.position.x, s.position.y)
+    s.kill()
+    return 1
+
+
 def kill_entity(e) -> int:
-    """Route to the right kill function — Centibomb explodes, Enemy does not."""
+    """Route to the right kill function based on entity type."""
     from ..entities.centibomb import Centibomb
+    from ..entities.shooter import Shooter
     if isinstance(e, Centibomb):
         return kill_centibomb(e)
+    if isinstance(e, Shooter):
+        return kill_shooter(e)
     return kill_enemy(e)
 
 

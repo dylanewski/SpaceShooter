@@ -9,7 +9,9 @@
       "Bash(xargs ls -lt)",
       "Bash(python3 -m py_compile /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/entities/boss_shot.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_draw.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_state.py /Users/dylanpniewski/workspace/bootdotdev/asteroidgame/asteroidgame/screens/game_systems.py)",
       "Bash(python3 -c \"import pygame; pygame.init\\(\\); from asteroidgame.screens.game import run; print\\('OK'\\)\")",
-      "Bash(uv run *)"
+      "Bash(uv run *)",
+      "Bash(python -c \"from asteroidgame.screens.game_systems import update_timers, update_particle_trail, handle_boss_trigger, update_spawn_rates, handle_boss_intro, handle_xp_collection, apply_upgrade; from asteroidgame.screens.game_abilities import handle_pulse, handle_afterburn, handle_vortex, handle_missile_ability, handle_laser_ability, handle_bolt_dash, resolve_buddy_pre_update, append_buddy_history, tag_ricochet, steer_homing; from asteroidgame.screens.game_spawn import handle_enemy_spawn, handle_xp_star_spawn, handle_centibomb_spawn, handle_shooter_spawn, handle_mine_drop; print\\('All imports OK'\\)\")",
+      "Bash(python -c \"import asteroidgame.screens.game; print\\('game.py OK'\\)\")"
     ]
   }
 }

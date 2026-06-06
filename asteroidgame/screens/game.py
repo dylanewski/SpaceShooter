@@ -13,6 +13,8 @@ from ..entities.vortex import Vortex
 from ..entities.boss import Boss
 from ..entities.boss_shot import BossShot
 from ..entities.centibomb import Centibomb
+from ..entities.mine import Mine
+from ..entities.shooter import Shooter
 from ..entities.xporb import XPOrb
 from ..entities.bigxporb import BigXPOrb
 from ..entities.xpstar import XPStar
@@ -24,15 +26,21 @@ from .game_state import GameState, DEATH_DURATION
 from .game_systems import (
     update_timers, update_particle_trail,
     handle_boss_trigger, update_spawn_rates,
-    handle_boss_intro, handle_enemy_spawn, handle_xp_star_spawn, handle_xp_collection,
-    handle_pulse, handle_afterburn, handle_vortex, handle_missile_ability, handle_laser_ability,
+    handle_boss_intro, handle_xp_collection, apply_upgrade,
+)
+from .game_abilities import (
+    handle_pulse, handle_afterburn, handle_vortex,
+    handle_missile_ability, handle_laser_ability, handle_bolt_dash,
     resolve_buddy_pre_update, append_buddy_history, tag_ricochet, steer_homing,
-    apply_upgrade, handle_centibomb_spawn, handle_bolt_dash,
+)
+from .game_spawn import (
+    handle_enemy_spawn, handle_xp_star_spawn, handle_centibomb_spawn,
+    handle_shooter_spawn, handle_mine_drop,
 )
 from .game_combat import (
     handle_shot_asteroid, handle_shot_enemy, handle_shot_boss, handle_shot_centibomb,
     handle_missile_enemies, handle_missile_boss,
-    handle_blob_damage, handle_plow, handle_shield,
+    handle_blob_damage, handle_plow, handle_shield, handle_mine_contact,
     handle_boss_shot_player, handle_player_damage,
 )
 from .game_draw import draw_frame, draw_death_frame, draw_pause_overlay
@@ -103,6 +111,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     bosses      = pygame.sprite.Group()
     boss_shots  = pygame.sprite.Group()
     centibombs  = pygame.sprite.Group()
+    mines       = pygame.sprite.Group()
 
     groups = {
         'updatable':   updatable,
@@ -120,6 +129,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
         'bosses':      bosses,
         'boss_shots':  boss_shots,
         'centibombs':  centibombs,
+        'mines':       mines,
     }
 
     # --- containers ---
@@ -138,6 +148,8 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     Boss.containers          = (bosses,)
     BossShot.containers      = (updatable, drawable, boss_shots)
     Centibomb.containers     = (updatable, drawable, centibombs)
+    Mine.containers          = (updatable, mines)
+    Shooter.containers       = (updatable, drawable, enemies)
 
     asteroid_field = AsteroidField()
     player         = Player(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
@@ -230,11 +242,14 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             handle_missile_enemies(state, groups)
             handle_missile_boss(state, groups)
             handle_blob_damage(state, groups, dt)
+            handle_mine_drop(state, player, groups, dt)
+            handle_mine_contact(state, groups)
             handle_plow(state, player, groups)
             handle_shield(state, player, groups)
 
             handle_enemy_spawn(state, groups, cx, cy, dt)
             handle_centibomb_spawn(state, groups, cx, cy, dt)
+            handle_shooter_spawn(state, player, groups, cx, cy, dt)
             handle_xp_star_spawn(state, dt)
             handle_xp_collection(state, player, groups)
 

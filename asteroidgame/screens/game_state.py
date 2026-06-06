@@ -135,11 +135,17 @@ class GameState:
         self.laser_origin    = None
         self.laser_direction = None
 
+        # ---- mines ----
+        self.mine_stacks   = 0
+        self.mine_cooldown = 3.6
+        self.mine_timer    = 0.0
+
         # ---- spawn timers ----
         self.particle_timer    = 0.0
         self.enemy_spawn_rate      = ENEMY_SPAWN_RATE_START
         self.enemy_spawn_timer     = 0.0
         self.centibomb_spawn_timer = 0.0
+        self.shooter_spawn_timer   = 0.0
         self.xp_star_timer         = 0.0
 
     # -----------------------------------------------------------------------

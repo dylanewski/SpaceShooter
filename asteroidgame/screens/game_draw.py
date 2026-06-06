@@ -7,6 +7,29 @@ from ..ui import draw_xp_bar, draw_lives, draw_button
 from ..entities.boss import BOSS_MAX_HP
 from .game_state import SHAKE_DURATION, SHAKE_INTENSITY, PULSE_RADIUS
 
+_UPGRADE_RARITY_COLORS = {
+    "Rapid Fire":   (255, 255, 255),
+    "Hi Caliber":   (255, 255, 255),
+    "Big Bullets":  (255, 255, 255),
+    "Speed Boost":  (255, 255, 255),
+    "Quick Regen":  (255, 255, 255),
+    "XP Generator": (255, 255, 255),
+    "Crit Chance":  (255, 255, 255),
+    "Ricochet":     (80, 130, 255),
+    "Explosive":    (80, 130, 255),
+    "Homing":       (80, 130, 255),
+    "Shield":       (80, 130, 255),
+    "Bolt Dash":    (80, 130, 255),
+    "Missiles":     (80, 130, 255),
+    "Laser":        (80, 130, 255),
+    "Mines":        (80, 200, 100),
+    "Pulse Wave":   (80, 200, 100),
+    "Afterburn":    (80, 200, 100),
+    "Plow":         (80, 200, 100),
+    "Lil Buddy":    (255, 160, 30),
+    "Vortex":       (255, 160, 30),
+}
+
 _combo_font          = None
 _death_lbl_font      = None
 _death_score_font    = None
@@ -58,10 +81,16 @@ def _get_death_fonts():
 # Main draw entry point
 # ---------------------------------------------------------------------------
 
+def _draw_mines(surf, groups):
+    for mine in groups['mines']:
+        mine.draw(surf)
+
+
 def draw_frame(game_surf, screen, state, player, groups, surfs, fonts, ui, dt):
     """Draw everything for one frame onto game_surf, then composite to screen."""
     game_surf.fill("black")
 
+    _draw_mines(game_surf, groups)
     _draw_missiles_vortexes_blobs(game_surf, groups)
     _draw_particles_and_sprites(game_surf, groups)
     _draw_player_attachments(game_surf, state, player)
@@ -376,6 +405,9 @@ def _draw_hud(surf, state, player, fonts, ui):
     if state.plow_stacks > 0:
         icon_items.append(("PL", state.plow_timer >= state.plow_cooldown,
                             min(1.0, state.plow_timer / state.plow_cooldown)))
+    if state.mine_stacks > 0:
+        icon_items.append(("MN", state.mine_timer >= state.mine_cooldown,
+                            min(1.0, state.mine_timer / state.mine_cooldown)))
 
     iw, ih, igap = 34, 34, 6
     ix, iy = 12, 55
@@ -433,13 +465,14 @@ def _draw_pause_upgrade_list(screen, state):
     if state.bolt_dash_stacks > 0:      entries.append(("Bolt Dash",     state.bolt_dash_stacks))
     if state.missile_stacks > 0:        entries.append(("Missiles",      state.missile_stacks))
     if state.laser_stacks > 0:          entries.append(("Laser",         state.laser_stacks))
+    if state.mine_stacks > 0:           entries.append(("Mines",         state.mine_stacks))
 
     if not entries:
         return
 
     ufont   = _get_pause_upgrade_font()
-    COL_W   = 160
-    ROW_H   = 28
+    COL_W   = 200
+    ROW_H   = 30
     COLS    = 4
     per_col = (len(entries) + COLS - 1) // COLS
     total_w = COLS * COL_W
@@ -454,8 +487,9 @@ def _draw_pause_upgrade_list(screen, state):
         row     = i % per_col
         x       = start_x + col * COL_W
         y       = start_y + row * ROW_H
-        name_s  = ufont.render(name, True, (210, 210, 210))
-        stack_s = ufont.render(f"{stacks}x", True, (255, 220, 60))
+        name_col = _UPGRADE_RARITY_COLORS.get(name, (210, 210, 210))
+        name_s   = ufont.render(name, True, name_col)
+        stack_s  = ufont.render(f"{stacks}x", True, (255, 220, 60))
         screen.blit(name_s,  (x, y))
         screen.blit(stack_s, (x + COL_W - stack_s.get_width() - 6, y))
 

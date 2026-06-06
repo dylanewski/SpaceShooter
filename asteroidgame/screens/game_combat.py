@@ -8,7 +8,7 @@ from ..entities.bigxporb import BigXPOrb
 from ..logger import log_event
 from .effects import (
     spawn_explosion, spawn_hit_effect, spawn_boss_explosion,
-    kill_asteroid, kill_enemy, kill_centibomb, combo_kill,
+    kill_asteroid, kill_enemy, kill_entity, kill_centibomb, combo_kill,
 )
 from .game_state import SHAKE_DURATION, RICOCHET_RANGE, EXPLOSION_RADIUS
 
@@ -128,7 +128,7 @@ def handle_shot_enemy(state, groups):
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
-            if e.take_damage(dmg): state.score += combo_kill(state, kill_enemy, e)
+            if e.take_damage(dmg): state.score += combo_kill(state, kill_entity, e)
             else: spawn_hit_effect(e.position.x, e.position.y, shot_vel)
 
 
@@ -186,7 +186,7 @@ def handle_missile_enemies(state, groups):
         for e in list(groups['enemies']):
             if m.alive() and e.alive() and m.position.distance_to(e.position) < m.radius + e.radius:
                 dmg = max(7, (max(20, 4 * state.level) + (state.missile_stacks - 1) * 5) // 3)
-                if e.take_damage(dmg): state.score += combo_kill(state, kill_enemy, e)
+                if e.take_damage(dmg): state.score += combo_kill(state, kill_entity, e)
                 spawn_explosion(m.position.x, m.position.y, 15)
                 m.kill()
                 break
@@ -243,7 +243,7 @@ def handle_blob_damage(state, groups, dt):
         b = _touching(e.position, e.radius)
         if b and state.game_time - state.blob_damage_cooldowns.get(id(e), -999) >= BLOB_TICK:
             state.blob_damage_cooldowns[id(e)] = state.game_time
-            if e.take_damage(int(b.damage_per_second)): state.score += combo_kill(state, kill_enemy, e)
+            if e.take_damage(int(b.damage_per_second)): state.score += combo_kill(state, kill_entity, e)
 
     for c in list(groups['centibombs']):
         if not c.alive(): continue
@@ -292,7 +292,7 @@ def handle_plow(state, player, groups):
             plow_hit = True
             hit_pos  = pygame.Vector2(e.position)
             state.plow_invincibility_timer = 0.5
-            if e.take_damage(plow_dmg): state.score += combo_kill(state, kill_enemy, e)
+            if e.take_damage(plow_dmg): state.score += combo_kill(state, kill_entity, e)
             else: spawn_hit_effect(nose.x, nose.y)
     for c in list(groups['centibombs']):
         if c.alive() and not plow_hit and nose.distance_to(c.position) < PLOW_R + c.radius:
@@ -308,6 +308,51 @@ def handle_plow(state, player, groups):
         away = player.position - hit_pos
         bounce_dir = away.normalize() if away.length() > 0 else -forward
         player.velocity = bounce_dir * (player.speed * 0.65)
+
+
+# ---------------------------------------------------------------------------
+# Mine explosions
+# ---------------------------------------------------------------------------
+
+def handle_mine_contact(state, groups):
+    EXP_R = 80
+    for mine in list(groups['mines']):
+        if not mine.alive():
+            continue
+        triggered = mine.lifetime <= 0
+        if not triggered:
+            for t in (list(groups['asteroids']) + list(groups['enemies']) +
+                      list(groups['centibombs'])):
+                if t.alive() and t.position.distance_to(mine.position) < t.radius + mine.radius:
+                    triggered = True
+                    break
+        if not triggered and state.boss_active and state.current_boss is not None:
+            for seg_pos, seg_r in state.current_boss.get_segments():
+                if seg_pos.distance_to(mine.position) < seg_r + mine.radius:
+                    triggered = True
+                    break
+        if not triggered:
+            continue
+        spawn_explosion(mine.position.x, mine.position.y, EXP_R // 2)
+        state.explosion_visuals.append([mine.position.x, mine.position.y, EXP_R, 0.0])
+        state.shake_timer = max(state.shake_timer, 0.15)
+        dmg = mine.damage
+        for a in list(groups['asteroids']):
+            if a.alive() and a.position.distance_to(mine.position) < EXP_R:
+                if a.take_damage(dmg): state.score += combo_kill(state, kill_asteroid, a)
+        for e in list(groups['enemies']):
+            if e.alive() and e.position.distance_to(mine.position) < EXP_R:
+                if e.take_damage(dmg): state.score += combo_kill(state, kill_entity, e)
+        for c in list(groups['centibombs']):
+            if c.alive() and c.position.distance_to(mine.position) < EXP_R:
+                if c.take_damage(dmg): state.score += combo_kill(state, kill_centibomb, c)
+        if state.boss_active and state.current_boss is not None:
+            for seg_pos, seg_r in state.current_boss.get_segments():
+                if seg_pos.distance_to(mine.position) < EXP_R:
+                    if state.current_boss.take_damage(dmg):
+                        kill_boss(state, groups)
+                    break
+        mine.kill()
 
 
 # ---------------------------------------------------------------------------

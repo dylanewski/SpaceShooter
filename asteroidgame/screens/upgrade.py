@@ -32,6 +32,7 @@ UPGRADE_POOL = [
     {"name": "Laser Beam",       "rarity": "rare"},
     {"name": "Ricochet",         "rarity": "rare"},
     {"name": "Explosive Rounds", "rarity": "rare"},
+    {"name": "Mines",            "rarity": "uncommon"},
     {"name": "Pulse Wave",       "rarity": "uncommon"},
     {"name": "Afterburn",        "rarity": "uncommon"},
     {"name": "Plow",             "rarity": "uncommon"},
