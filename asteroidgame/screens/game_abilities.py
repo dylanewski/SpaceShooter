@@ -139,6 +139,13 @@ def handle_vortex(state, player, groups, dt):
             for c in list(groups['centibombs']):
                 if c.alive() and c.position.distance_to(v.position) < v.pull_radius:
                     if c.take_damage(vdmg): state.score += combo_kill(state, kill_centibomb, c)
+            if state.boss_active and state.current_boss is not None:
+                for seg_pos, seg_r in state.current_boss.get_segments():
+                    if seg_pos.distance_to(v.position) < v.pull_radius:
+                        if state.current_boss.take_damage(vdmg):
+                            from .game_combat import kill_boss
+                            kill_boss(state, groups)
+                        break
 
 
 def handle_missile_ability(state, player, groups, dt):
@@ -155,9 +162,9 @@ def handle_missile_ability(state, player, groups, dt):
             side = random.choice([-1, 1])
             state.missile_queue.clear()
             if targets:
-                nearest = targets[0]
-                for _ in range(missile_count):
-                    state.missile_queue.append((side, nearest))
+                target_pool = targets[:min(3, len(targets))]
+                for i in range(missile_count):
+                    state.missile_queue.append((side, target_pool[i % len(target_pool)]))
                     side = -side
             state.missile_launch_timer = 0.0
 
@@ -183,7 +190,7 @@ def handle_laser_ability(state, player, groups, dt):
         state.laser_visual_age = 0.0
         state.laser_origin     = pygame.Vector2(player.position)
         state.laser_direction  = pygame.Vector2(0, 1).rotate(player.rotation).normalize()
-        laser_dmg              = max(25, 3 * state.level)
+        laser_dmg              = max(50, 6 * state.level)
         for a in list(groups['asteroids']):
             if a.alive() and ray_hits(state.laser_origin, state.laser_direction, a.position, a.radius):
                 if a.take_damage(laser_dmg): state.score += combo_kill(state, kill_asteroid, a)
@@ -196,6 +203,14 @@ def handle_laser_ability(state, player, groups, dt):
             if c.alive() and ray_hits(state.laser_origin, state.laser_direction, c.position, c.radius):
                 if c.take_damage(laser_dmg): state.score += combo_kill(state, kill_centibomb, c)
                 else: spawn_hit_effect(c.position.x, c.position.y)
+        if state.boss_active and state.current_boss is not None:
+            for seg_pos, seg_r in state.current_boss.get_segments():
+                if ray_hits(state.laser_origin, state.laser_direction, seg_pos, seg_r):
+                    spawn_hit_effect(int(seg_pos.x), int(seg_pos.y))
+                    if state.current_boss.take_damage(laser_dmg):
+                        from .game_combat import kill_boss
+                        kill_boss(state, groups)
+                    break
 
 
 def handle_bolt_dash(state, player, groups):
@@ -249,7 +264,7 @@ def resolve_buddy_pre_update(state, player, groups):
             break
 
     if state.buddy_stacks > 0 and player.just_fired:
-        buddy_dmg = max(1, int(state.shot_damage * (1/3 + (state.buddy_stacks - 1) * 0.07)))
+        buddy_dmg = max(1, int(state.shot_damage * (0.5 + (state.buddy_stacks - 1) * 0.07)))
         s = Shot(state.buddy_delayed_pos.x, state.buddy_delayed_pos.y,
                  pygame.Vector2(0, 1).rotate(player.rotation), player.shot_radius)
         s.damage        = buddy_dmg

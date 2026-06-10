@@ -18,7 +18,8 @@
       "Bash(python -c \"from asteroidgame.entities.shooter import Shooter, _IMAGE_SIZE, _muzzle_offset; print\\('size:', _IMAGE_SIZE, 'muzzle_offset:', _muzzle_offset\\)\")",
       "Bash(git -C /Users/dylanpniewski/workspace/bootdotdev/asteroidgame status)",
       "Bash(git -C /Users/dylanpniewski/workspace/bootdotdev/asteroidgame diff)",
-      "Bash(python -c \"import asteroidgame.screens.game; print\\('OK'\\)\")"
+      "Bash(python -c \"import asteroidgame.screens.game; print\\('OK'\\)\")",
+      "Bash(git -C /Users/dylanpniewski/workspace/bootdotdev/asteroidgame diff --stat HEAD)"
     ]
   }
 }

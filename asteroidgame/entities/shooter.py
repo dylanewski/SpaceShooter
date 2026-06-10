@@ -8,7 +8,7 @@ SHOOTER_RADIUS     = 22
 SHOOTER_SPEED      = 85
 SHOOTER_MAX_HEALTH = 35
 SHOOTER_MOVE_TIME  = 2.0
-SHOOTER_SHOT_SPEED = 240
+SHOOTER_SHOT_SPEED = 420
 SHOOTER_TURN_SPEED = 150   # degrees per second
 
 ALIGN_THRESHOLD = 6.0   # degrees: must be this close to player before lock starts
@@ -111,7 +111,7 @@ class Shooter(CircleShape):
                 progress = self._lock_timer / LOCK_REQUIRED
                 muzzle   = self._muzzle()
                 d_muzzle = self._player.position - muzzle
-                tip      = muzzle + (d_muzzle.normalize() * 900 if d_muzzle.length() > 0 else pygame.Vector2(0, 900))
+                tip      = muzzle + (d_muzzle.normalize() * 2000 if d_muzzle.length() > 0 else pygame.Vector2(0, 2000))
                 self._laser_surf.fill((0, 0, 0, 0))
                 pygame.draw.line(self._laser_surf,
                                  (255, 60, 60, 40 + int(progress * 40)),

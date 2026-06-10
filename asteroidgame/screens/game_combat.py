@@ -290,7 +290,8 @@ def handle_plow(state, player, groups):
 
     # Damage scales with current speed — dash synergy
     vel_factor = max(1.0, player.velocity.length() / max(1.0, player.speed))
-    plow_dmg   = int(max(35, state.plow_stacks * 5 * state.level) * vel_factor)
+    is_crit    = _roll_crit(state.crit_chance)
+    plow_dmg   = int(max(35, state.plow_stacks * 5 * state.level) * vel_factor * (2 if is_crit else 1))
 
     hit_pos  = None
     plow_hit = False
@@ -300,6 +301,7 @@ def handle_plow(state, player, groups):
             plow_hit = True
             hit_pos  = pygame.Vector2(a.position)
             state.plow_invincibility_timer = 0.5
+            if is_crit: a.crit_flash_timer = CRIT_FLASH_DURATION
             if a.take_damage(plow_dmg): state.score += combo_kill(state, kill_asteroid, a)
             else: spawn_hit_effect(nose.x, nose.y)
     for e in list(groups['enemies']):
@@ -308,6 +310,7 @@ def handle_plow(state, player, groups):
             plow_hit = True
             hit_pos  = pygame.Vector2(e.position)
             state.plow_invincibility_timer = 0.5
+            if is_crit: e.crit_flash_timer = CRIT_FLASH_DURATION
             if e.take_damage(plow_dmg): state.score += combo_kill(state, kill_entity, e)
             else: spawn_hit_effect(nose.x, nose.y)
     for c in list(groups['centibombs']):
@@ -316,8 +319,22 @@ def handle_plow(state, player, groups):
             plow_hit = True
             hit_pos  = pygame.Vector2(c.position)
             state.plow_invincibility_timer = 0.5
+            if is_crit: c.crit_flash_timer = CRIT_FLASH_DURATION
             if c.take_damage(plow_dmg): state.score += combo_kill(state, kill_centibomb, c)
             else: spawn_hit_effect(nose.x, nose.y)
+    if state.boss_active and state.current_boss is not None and not plow_hit:
+        for seg_pos, seg_r in state.current_boss.get_segments():
+            if nose.distance_to(seg_pos) < PLOW_R + seg_r:
+                state.plow_timer = 0.0
+                plow_hit = True
+                hit_pos  = pygame.Vector2(seg_pos)
+                state.plow_invincibility_timer = 0.5
+                if is_crit: state.current_boss.crit_flash_timer = CRIT_FLASH_DURATION
+                if state.current_boss.take_damage(plow_dmg):
+                    kill_boss(state, groups)
+                else:
+                    spawn_hit_effect(nose.x, nose.y)
+                break
 
     if plow_hit and hit_pos is not None:
         # Bounce the ship away from the hit object
@@ -384,20 +401,29 @@ def handle_shield(state, player, groups):
             spawn_explosion(a.position.x, a.position.y, a._full_radius)
             XPOrb(a.position.x, a.position.y)
             a.kill()
-            state.shield_active        = False
-            state.shield_age           = 0.0
-            state.shield_recharge_timer = 0.0
+            state.shield_hp -= ASTEROID_CONTACT_DAMAGE
+            if state.shield_hp <= 0:
+                state.shield_hp             = 0
+                state.shield_active         = False
+                state.shield_age            = 0.0
+                state.shield_recharge_timer = 0.0
             break
 
 
 def _take_player_hit(state, player, damage):
-    """Apply damage to HP or consume shield. Returns True if player died."""
+    """Apply damage to HP through armor/shield. Returns True if player died."""
     log_event("player_hit")
+    if state.armor_stacks > 0:
+        damage = max(1, int(damage * (1.0 - min(0.40, 0.06 + state.armor_stacks * 0.08))))
     if state.shield_active:
+        state.shield_hp -= damage
+        if state.shield_hp > 0:
+            return False
+        damage = -state.shield_hp   # overflow through shield
+        state.shield_hp             = 0
         state.shield_active         = False
         state.shield_age            = 0.0
         state.shield_recharge_timer = 0.0
-        return False
     state.hp          -= damage
     state.shake_timer  = SHAKE_DURATION
     if state.hp <= 0:
@@ -449,7 +475,7 @@ def handle_player_damage(state, player, groups):
             return
     for e in list(groups['enemies']):
         if e.collides_with(player):
-            _take_player_hit(state, player, ENEMY_CONTACT_DAMAGE)
+            _take_player_hit(state, player, getattr(e, 'contact_damage', ENEMY_CONTACT_DAMAGE))
             return
     for c in list(groups['centibombs']):
         if c.collides_with(player):

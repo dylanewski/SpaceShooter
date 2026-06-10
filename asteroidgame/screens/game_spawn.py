@@ -8,7 +8,8 @@ from ..entities.xpstar import XPStar
 
 
 CENTIBOMB_SPAWN_INTERVAL = 25.0
-SHOOTER_SPAWN_INTERVAL   = 35.0
+SHOOTER_SPAWN_INTERVAL   = 20.0
+DASHER_SPAWN_INTERVAL    = 18.0
 
 
 def handle_enemy_spawn(state, groups, cx, cy, dt):
@@ -67,7 +68,7 @@ def handle_centibomb_spawn(state, groups, cx, cy, dt):
 def handle_shooter_spawn(state, player, groups, cx, cy, dt):
     if state.game_phase < 2 or state.boss_intro_active or state.boss_active:
         return
-    if (state.game_time - state.spawn_ramp_offset) < 60.0:
+    if (state.game_time - state.spawn_ramp_offset) < 30.0:
         return
     state.shooter_spawn_timer += dt
     if state.shooter_spawn_timer < SHOOTER_SPAWN_INTERVAL:
@@ -83,6 +84,25 @@ def handle_shooter_spawn(state, player, groups, cx, cy, dt):
     ])
     s = Shooter(edge.x, edge.y, player)
     s.health = int(SHOOTER_MAX_HEALTH * (1.0 + int(state.game_time // 60) * 0.10))
+
+
+def handle_dasher_spawn(state, player, groups, cx, cy, dt):
+    if state.game_time < 90.0 or state.boss_intro_active or state.boss_active:
+        return
+    state.dasher_spawn_timer += dt
+    if state.dasher_spawn_timer < DASHER_SPAWN_INTERVAL:
+        return
+    state.dasher_spawn_timer = 0.0
+    from ..entities.dasher import Dasher, DASHER_MAX_HEALTH
+    SPAWN_MARGIN = 160
+    edge = random.choice([
+        pygame.Vector2(-SPAWN_MARGIN,               random.uniform(0, 1) * SCREEN_HEIGHT),
+        pygame.Vector2(SCREEN_WIDTH + SPAWN_MARGIN,  random.uniform(0, 1) * SCREEN_HEIGHT),
+        pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH, -SPAWN_MARGIN),
+        pygame.Vector2(random.uniform(0, 1) * SCREEN_WIDTH,  SCREEN_HEIGHT + SPAWN_MARGIN),
+    ])
+    d = Dasher(edge.x, edge.y, player)
+    d.health = int(DASHER_MAX_HEALTH * (1.0 + int(state.game_time // 60) * 0.10))
 
 
 def handle_mine_drop(state, player, groups, dt):

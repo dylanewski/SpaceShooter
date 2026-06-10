@@ -78,11 +78,16 @@ class GameState:
         self.backup_engine_timer    = 120.0  # start ready
 
         # ---- shield ----
-        self.shield_stacks        = 0
-        self.shield_active        = False
-        self.shield_age           = 0.0
-        self.shield_recharge_time  = 30.0
+        self.shield_stacks         = 0
+        self.shield_hp             = 0
+        self.shield_hp_max         = 0
+        self.shield_active         = False
+        self.shield_age            = 0.0
+        self.shield_recharge_time  = 25.0
         self.shield_recharge_timer = 0.0
+
+        # ---- armor ----
+        self.armor_stacks = 0
 
         # ---- pulse wave ----
         self.pulse_stacks    = 0
@@ -151,6 +156,7 @@ class GameState:
         self.enemy_spawn_timer     = 0.0
         self.centibomb_spawn_timer = 0.0
         self.shooter_spawn_timer   = 0.0
+        self.dasher_spawn_timer    = 0.0
         self.xp_star_timer         = 0.0
 
     # -----------------------------------------------------------------------

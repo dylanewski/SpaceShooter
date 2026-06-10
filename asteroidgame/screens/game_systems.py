@@ -49,6 +49,7 @@ def update_timers(state, dt):
     elif state.shield_stacks > 0:
         state.shield_recharge_timer += dt
         if state.shield_recharge_timer >= state.shield_recharge_time:
+            state.shield_hp             = state.shield_hp_max
             state.shield_active         = True
             state.shield_age            = 0.0
             state.shield_recharge_timer = 0.0
@@ -87,12 +88,12 @@ def update_spawn_rates(state, asteroid_field):
         _ramp   = 240.0
         _ast_hi = ASTEROID_SPAWN_RATE_SECONDS * 8
         _ast_lo = ASTEROID_SPAWN_RATE_SECONDS / 2
-        _enm_lo = ENEMY_SPAWN_RATE_MIN
+        _enm_lo = ENEMY_SPAWN_RATE_MIN * 1.6    # junk cap at 3.2s — dashers fill the gap
     else:
-        _ramp   = 160.0                          # faster pressure build than phase 1
+        _ramp   = 90.0                           # faster pressure build than phase 1
         _ast_hi = ASTEROID_SPAWN_RATE_SECONDS * 8
         _ast_lo = ASTEROID_SPAWN_RATE_SECONDS    # cap at 0.8s (denser than phase 1)
-        _enm_lo = ENEMY_SPAWN_RATE_MIN * 1.25   # junk cap at 2.5s
+        _enm_lo = ENEMY_SPAWN_RATE_MIN * 1.8    # junk cap at 3.6s — shooters + dashers fill the gap
     _t = min(1.0, (state.game_time - state.spawn_ramp_offset) / _ramp)
     asteroid_field.spawn_rate = _ast_hi + (_ast_lo - _ast_hi) * _t
     state.enemy_spawn_rate    = ENEMY_SPAWN_RATE_START + (_enm_lo - ENEMY_SPAWN_RATE_START) * _t
@@ -179,10 +180,14 @@ def apply_upgrade(state, player, name):
         state.shot_damage += 6
         state.caliber_stacks += 1
     elif name == "Shield":
-        state.shield_stacks += 1
-        state.shield_recharge_time = 30.0 * (0.7 ** (state.shield_stacks - 1))
-        state.shield_active = True
-        state.shield_age    = 0.0
+        state.shield_stacks       += 1
+        state.shield_hp_max        = 35 + (state.shield_stacks - 1) * 20
+        state.shield_recharge_time = max(10.0, 25.0 - (state.shield_stacks - 1) * 7.0)
+        state.shield_hp            = state.shield_hp_max
+        state.shield_active        = True
+        state.shield_age           = 0.0
+    elif name == "Armor":
+        state.armor_stacks += 1
     elif name == "XP Generator":
         state.xp_multiplier *= 1.1
         state.xp_gen_stacks += 1

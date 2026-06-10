@@ -18,28 +18,33 @@ RARITY_COLORS = {
 }
 
 UPGRADE_POOL = [
-    {"name": "Rapid Fire",       "rarity": "common"},
+    # common
+    {"name": "Armor",                 "rarity": "common"},
+    {"name": "Rapid Fire",            "rarity": "common"},
     {"name": "Higher Caliber Rounds", "rarity": "common"},
-    {"name": "XP Generator",     "rarity": "common"},
-    {"name": "Bigger Bullets",   "rarity": "common"},
-    {"name": "Speed Boost",      "rarity": "common"},
-    {"name": "Bolt Dash",        "rarity": "rare"},
-    {"name": "Quick Regen",      "rarity": "common"},
-    {"name": "Crit Chance Up",   "rarity": "common"},
-    {"name": "Shield",           "rarity": "rare"},
-    {"name": "Homing Shots",     "rarity": "rare"},
-    {"name": "Missile Salvo",    "rarity": "rare"},
-    {"name": "Laser Beam",       "rarity": "rare"},
-    {"name": "Ricochet",         "rarity": "rare"},
-    {"name": "Explosive Rounds", "rarity": "rare"},
-    {"name": "Mines",            "rarity": "uncommon"},
-    {"name": "Pulse Wave",       "rarity": "uncommon"},
-    {"name": "Afterburn",        "rarity": "uncommon"},
-    {"name": "Plow",             "rarity": "uncommon"},
-    {"name": "Vortex Field",     "rarity": "legendary"},
-    {"name": "Little Buddy",     "rarity": "legendary"},
-    {"name": "Syphon Bullets",   "rarity": "uncommon"},
-    {"name": "Backup Engine",    "rarity": "legendary"},
+    {"name": "XP Generator",          "rarity": "common"},
+    {"name": "Bigger Bullets",        "rarity": "common"},
+    {"name": "Speed Boost",           "rarity": "common"},
+    {"name": "Quick Regen",           "rarity": "common"},
+    {"name": "Crit Chance Up",        "rarity": "common"},
+    # uncommon
+    {"name": "Mines",                 "rarity": "uncommon"},
+    {"name": "Pulse Wave",            "rarity": "uncommon"},
+    {"name": "Afterburn",             "rarity": "uncommon"},
+    {"name": "Plow",                  "rarity": "uncommon"},
+    # rare
+    {"name": "Bolt Dash",             "rarity": "rare"},
+    {"name": "Shield",                "rarity": "rare"},
+    {"name": "Homing Shots",          "rarity": "rare"},
+    {"name": "Missile Salvo",         "rarity": "rare"},
+    {"name": "Laser Beam",            "rarity": "rare"},
+    {"name": "Ricochet",              "rarity": "rare"},
+    {"name": "Syphon Bullets",        "rarity": "rare"},
+    {"name": "Explosive Rounds",      "rarity": "rare"},
+    # legendary
+    {"name": "Vortex Field",          "rarity": "legendary"},
+    {"name": "Little Buddy",          "rarity": "legendary"},
+    {"name": "Backup Engine",         "rarity": "legendary"},
 ]
 
 _overlay    = None

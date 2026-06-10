@@ -16,6 +16,7 @@ from ..entities.boss_shot import BossShot
 from ..entities.centibomb import Centibomb
 from ..entities.mine import Mine
 from ..entities.shooter import Shooter
+from ..entities.dasher import Dasher
 from ..entities.xporb import XPOrb
 from ..entities.bigxporb import BigXPOrb
 from ..entities.xpstar import XPStar
@@ -36,7 +37,7 @@ from .game_abilities import (
 )
 from .game_spawn import (
     handle_enemy_spawn, handle_xp_star_spawn, handle_centibomb_spawn,
-    handle_shooter_spawn, handle_mine_drop,
+    handle_shooter_spawn, handle_dasher_spawn, handle_mine_drop,
 )
 from .game_combat import (
     handle_shot_asteroid, handle_shot_enemy, handle_shot_boss, handle_shot_centibomb,
@@ -80,7 +81,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     # --- boss intro image ---
     try:
         _excl_raw   = pygame.image.load("assets/images/game/skull!boss.png").convert_alpha()
-        _excl_scale = 600 / max(_excl_raw.get_width(), _excl_raw.get_height())
+        _excl_scale = 780 / max(_excl_raw.get_width(), _excl_raw.get_height())
         boss_excl_image = pygame.transform.scale(
             _excl_raw,
             (int(_excl_raw.get_width() * _excl_scale), int(_excl_raw.get_height() * _excl_scale))
@@ -152,6 +153,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
     Centibomb.containers     = (updatable, drawable, centibombs)
     Mine.containers          = (updatable, mines)
     Shooter.containers       = (updatable, drawable, enemies)
+    Dasher.containers        = (updatable, drawable, enemies)
 
     asteroid_field = AsteroidField()
     player         = Player(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
@@ -252,6 +254,7 @@ def run(screen, clock, font, big_font) -> tuple[str, int]:
             handle_enemy_spawn(state, groups, cx, cy, dt)
             handle_centibomb_spawn(state, groups, cx, cy, dt)
             handle_shooter_spawn(state, player, groups, cx, cy, dt)
+            handle_dasher_spawn(state, player, groups, cx, cy, dt)
             handle_xp_star_spawn(state, dt)
             handle_xp_collection(state, player, groups)
 

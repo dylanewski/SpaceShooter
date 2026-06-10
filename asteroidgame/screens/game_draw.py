@@ -188,14 +188,23 @@ def _draw_boss(surf, state):
 
 
 def _draw_shield(surf, state, player, shield_surf):
-    if not state.shield_active:
+    if not state.shield_stacks:
         return
     SHIELD_R = PLAYER_RADIUS + 10
     sz       = SHIELD_R * 2 + 6
     center   = (sz // 2, sz // 2)
-    alpha    = int(abs(math.sin(state.shield_age * 3)) * 255)
     shield_surf.fill((0, 0, 0, 0))
-    pygame.draw.circle(shield_surf, (100, 150, 255, alpha), center, SHIELD_R, 3)
+    if state.shield_active and state.shield_hp_max > 0:
+        frac  = state.shield_hp / state.shield_hp_max
+        pulse = int(abs(math.sin(state.shield_age * 3)) * 80 + 80)
+        if frac >= 1.0:
+            pygame.draw.circle(shield_surf, (100, 150, 255, pulse), center, SHIELD_R, 3)
+        else:
+            rect = pygame.Rect(center[0] - SHIELD_R, center[1] - SHIELD_R, SHIELD_R * 2, SHIELD_R * 2)
+            pygame.draw.arc(shield_surf, (100, 150, 255, pulse), rect,
+                            -math.pi / 2, -math.pi / 2 + 2 * math.pi * frac, 3)
+    else:
+        pygame.draw.circle(shield_surf, (30, 50, 90, 50), center, SHIELD_R, 2)
     surf.blit(shield_surf, shield_surf.get_rect(center=(int(player.position.x), int(player.position.y))))
 
 
@@ -393,7 +402,10 @@ def _draw_hud(surf, state, player, fonts, ui):
         icon_items.append(("PW", state.pulse_timer >= state.pulse_cooldown,
                             min(1.0, state.pulse_timer / state.pulse_cooldown)))
     if state.shield_stacks > 0:
-        frac = 1.0 if state.shield_active else min(1.0, state.shield_recharge_timer / state.shield_recharge_time)
+        if state.shield_active and state.shield_hp_max > 0:
+            frac = state.shield_hp / state.shield_hp_max
+        else:
+            frac = min(1.0, state.shield_recharge_timer / state.shield_recharge_time)
         icon_items.append(("SH", state.shield_active, frac))
     if state.vortex_stacks > 0:
         icon_items.append(("VF", state.vortex_timer >= state.vortex_cooldown,
@@ -463,6 +475,7 @@ def _draw_pause_upgrade_list(screen, state):
     if state.crit_chance > 3:           entries.append(("Crit Chance",   (state.crit_chance - 3) // 10))
     if state.homing_strength > 0:       entries.append(("Homing",        state.homing_strength))
     if state.shield_stacks > 0:         entries.append(("Shield",        state.shield_stacks))
+    if state.armor_stacks > 0:          entries.append(("Armor",         state.armor_stacks))
     if state.pulse_stacks > 0:          entries.append(("Pulse Wave",    state.pulse_stacks))
     if state.afterburn_stacks > 0:      entries.append(("Afterburn",     state.afterburn_stacks))
     if state.plow_stacks > 0:           entries.append(("Plow",          state.plow_stacks))
