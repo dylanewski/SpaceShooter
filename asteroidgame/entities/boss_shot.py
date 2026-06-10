@@ -2,7 +2,7 @@ import math
 import random
 import pygame
 from .circleshape import CircleShape
-from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, BOSS_SHOT_DAMAGE
 
 BOSS_SHOT_SPEED  = 210
 BOSS_SHOT_RADIUS = 14
@@ -15,7 +15,8 @@ class BossShot(CircleShape):
         super().__init__(x, y, BOSS_SHOT_RADIUS)
         self.velocity = direction.normalize() * BOSS_SHOT_SPEED if direction.length() > 0 \
                         else pygame.Vector2(0, 1) * BOSS_SHOT_SPEED
-        self._age = 0.0
+        self.damage = BOSS_SHOT_DAMAGE
+        self._age   = 0.0
 
     def draw(self, screen):
         pulse = math.sin(self._age * 10) * 2

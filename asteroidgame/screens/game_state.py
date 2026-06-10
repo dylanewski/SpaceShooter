@@ -1,6 +1,6 @@
 from collections import deque
 
-from ..constants import MAX_LIVES, LIFE_REGEN_TIME
+from ..constants import PLAYER_MAX_HP, PLAYER_REGEN_RATE
 from ..entities.enemy import ENEMY_SPAWN_RATE_START
 
 # ---------------------------------------------------------------------------
@@ -46,9 +46,8 @@ class GameState:
         self.xp_to_next       = 7
         self.level_up_pending = False
         self.xp_visual        = 0.0
-        self.lives            = MAX_LIVES
-        self.life_regen_time  = LIFE_REGEN_TIME
-        self.life_regen_timer = 0.0
+        self.hp            = PLAYER_MAX_HP
+        self.hp_regen_rate = PLAYER_REGEN_RATE
 
         # ---- combo ----
         self.highest_combo      = 0
@@ -71,6 +70,12 @@ class GameState:
         self.speed_stacks       = 0
         self.quick_regen_stacks = 0
         self.xp_gen_stacks      = 0
+        self.syphon_stacks      = 0
+
+        # ---- backup engine ----
+        self.backup_engine_stacks   = 0
+        self.backup_engine_cooldown = 120.0
+        self.backup_engine_timer    = 120.0  # start ready
 
         # ---- shield ----
         self.shield_stacks        = 0

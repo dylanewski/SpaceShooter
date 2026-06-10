@@ -3,7 +3,8 @@ import pygame
 from ..constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     ASTEROID_SPAWN_RATE_SECONDS, PLAYER_RADIUS,
-    XP_ORB_PICKUP_RADIUS, MAX_LIVES,
+    XP_ORB_PICKUP_RADIUS, PLAYER_MAX_HP,
+    BACKUP_ENGINE_COOLDOWN_BASE, BACKUP_ENGINE_COOLDOWN_STEP,
 )
 from ..entities.enemy import ENEMY_SPAWN_RATE_START, ENEMY_SPAWN_RATE_MIN
 from ..entities.xpstar import XP_STAR_VALUE
@@ -36,11 +37,12 @@ def update_timers(state, dt):
     if state.combo_shake_timer > 0:
         state.combo_shake_timer = max(0.0, state.combo_shake_timer - dt)
 
-    if state.lives < MAX_LIVES:
-        state.life_regen_timer += dt
-        if state.life_regen_timer >= state.life_regen_time:
-            state.lives += 1
-            state.life_regen_timer = 0.0
+    if state.hp < PLAYER_MAX_HP:
+        state.hp = min(PLAYER_MAX_HP, state.hp + state.hp_regen_rate * dt)
+
+    if state.backup_engine_stacks > 0:
+        state.backup_engine_timer = min(state.backup_engine_cooldown,
+                                        state.backup_engine_timer + dt)
 
     if state.shield_active:
         state.shield_age += dt
@@ -193,7 +195,7 @@ def apply_upgrade(state, player, name):
         player.speed *= 1.2
         state.speed_stacks += 1
     elif name == "Quick Regen":
-        state.life_regen_time *= 0.75
+        state.hp_regen_rate      += 1.0
         state.quick_regen_stacks += 1
     elif name == "Pulse Wave":
         state.pulse_stacks  += 1
@@ -238,3 +240,12 @@ def apply_upgrade(state, player, name):
         state.mine_cooldown = 3.6 * (0.8 ** (state.mine_stacks - 1))
     elif name == "Crit Chance Up":
         state.crit_chance += 10
+    elif name == "Syphon Bullets":
+        state.syphon_stacks += 1
+    elif name == "Backup Engine":
+        state.backup_engine_stacks   += 1
+        state.backup_engine_cooldown  = max(
+            60.0,
+            BACKUP_ENGINE_COOLDOWN_BASE - (state.backup_engine_stacks - 1) * BACKUP_ENGINE_COOLDOWN_STEP,
+        )
+        state.backup_engine_timer = state.backup_engine_cooldown  # start ready after pickup

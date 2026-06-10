@@ -16,6 +16,21 @@ XP_ORB_RADIUS = 6
 XP_ORB_PICKUP_RADIUS = 120
 XP_ORB_LIFETIME = 10.0
 ASTEROID_HITBOX_SCALE = 0.825
-MAX_LIVES = 3
-LIFE_REGEN_TIME = 60.0
 INVINCIBILITY_TIME = 2.0
+
+PLAYER_MAX_HP    = 100
+PLAYER_REGEN_RATE = 0.5   # HP per second
+
+# Contact damage per hit source
+ASTEROID_CONTACT_DAMAGE  = 15
+ENEMY_CONTACT_DAMAGE     = 18
+CENTIBOMB_CONTACT_DAMAGE = 25
+BOSS_CONTACT_DAMAGE      = 35
+BOSS_SHOT_DAMAGE         = 20
+SHOOTER_SHOT_DAMAGE      = 15
+
+SYPHON_LIFESTEAL_PER_STACK = 0.06   # fraction of damage healed per stack
+BACKUP_ENGINE_COOLDOWN_BASE = 120.0  # seconds
+BACKUP_ENGINE_COOLDOWN_STEP =  30.0  # reduction per additional stack
+BACKUP_ENGINE_HEAL_BASE     =   0.4  # fraction of max HP healed on stack 1
+BACKUP_ENGINE_HEAL_STEP     =   0.1  # +fraction per additional stack

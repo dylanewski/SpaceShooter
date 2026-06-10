@@ -3,7 +3,7 @@ import random
 import pygame
 
 from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, PLAYER_RADIUS
-from ..ui import draw_xp_bar, draw_lives, draw_button
+from ..ui import draw_xp_bar, draw_hp_bar, draw_button
 from ..entities.boss  import BOSS_MAX_HP
 from ..entities.boss2 import BOSS2_MAX_HP
 from .game_state import SHAKE_DURATION, SHAKE_INTENSITY, PULSE_RADIUS
@@ -367,7 +367,7 @@ def _draw_hud(surf, state, player, fonts, ui):
     dt        = ui.get('dt', 0.016)
 
     # danger border when low health
-    if state.lives == 1:
+    if state.hp <= 30:
         pulse       = (math.sin(state.game_time * 2.5) + 1) / 2
         bw          = 48
         max_alpha   = int(40 + pulse * 160)
@@ -385,7 +385,7 @@ def _draw_hud(surf, state, player, fonts, ui):
 
     surf.blit(font.render(f"{state.score}", True, "white"), (10, 10))
     draw_xp_bar(surf, font, cx, state.level, state.xp, state.xp_to_next, state.xp_visual)
-    draw_lives(surf, state.lives, state.life_regen_timer / state.life_regen_time)
+    draw_hp_bar(surf, font, state.hp, state.hp_regen_rate)
 
     # ability icons
     icon_items = []
@@ -410,6 +410,10 @@ def _draw_hud(surf, state, player, fonts, ui):
     if state.mine_stacks > 0:
         icon_items.append(("MN", state.mine_timer >= state.mine_cooldown,
                             min(1.0, state.mine_timer / state.mine_cooldown)))
+    if state.backup_engine_stacks > 0:
+        be_ready = state.backup_engine_timer >= state.backup_engine_cooldown
+        icon_items.append(("BE", be_ready,
+                            min(1.0, state.backup_engine_timer / state.backup_engine_cooldown)))
 
     iw, ih, igap = 34, 34, 6
     ix, iy = 12, 55

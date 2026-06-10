@@ -2,7 +2,7 @@ import math
 import random
 import pygame
 from .circleshape import CircleShape
-from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, SHOOTER_SHOT_DAMAGE
 
 SHOOTER_RADIUS     = 22
 SHOOTER_SPEED      = 85
@@ -93,6 +93,7 @@ class Shooter(CircleShape):
             d      = self._player.position - muzzle
             shot   = BossShot(muzzle.x, muzzle.y, d)
             shot.radius   = max(3, BOSS_SHOT_RADIUS // 2)
+            shot.damage   = SHOOTER_SHOT_DAMAGE
             shot.velocity = (d.normalize() * SHOOTER_SHOT_SPEED
                              if d.length() > 0 else pygame.Vector2(0, 1) * SHOOTER_SHOT_SPEED)
 

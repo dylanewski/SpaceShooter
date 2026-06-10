@@ -1,5 +1,5 @@
 import pygame
-from .constants import LINE_WIDTH, SCREEN_WIDTH, MAX_LIVES
+from .constants import LINE_WIDTH, SCREEN_WIDTH, PLAYER_MAX_HP
 
 
 def make_button(center, width=220, height=60):
@@ -36,21 +36,22 @@ def draw_xp_bar(screen, font, cx, level, xp, xp_to_next, xp_visual=None):
     screen.blit(lvl_text, lvl_text.get_rect(midright=(bar_x - 10, bar_y + BAR_H // 2)))
 
 
-def draw_lives(screen, lives, regen_progress):
-    ICON_R = 10
-    GAP    = 28
-    y      = 19
-    start_x = SCREEN_WIDTH - 20 - (MAX_LIVES - 1) * GAP
+def draw_hp_bar(screen, font, hp, regen_rate):
+    BAR_W, BAR_H = 160, 16
+    bar_x = SCREEN_WIDTH - 20 - BAR_W
+    bar_y = 30
+    frac  = max(0.0, min(1.0, hp / PLAYER_MAX_HP))
 
-    for i in range(MAX_LIVES):
-        x = start_x + i * GAP
-        if i < lives:
-            pygame.draw.circle(screen, "white", (x, y), ICON_R)
-        else:
-            pygame.draw.circle(screen, (60, 60, 60), (x, y), ICON_R)
-            pygame.draw.circle(screen, "white",      (x, y), ICON_R, LINE_WIDTH)
-            if i == lives:
-                bar_w  = ICON_R * 2
-                filled = int(bar_w * regen_progress)
-                pygame.draw.rect(screen, (50, 50, 50),  (x - ICON_R, y + ICON_R + 4, bar_w,   3))
-                pygame.draw.rect(screen, "white",        (x - ICON_R, y + ICON_R + 4, filled, 3))
+    if frac > 0.5:
+        r = int(255 * (1.0 - frac) * 2)
+        color = (r, 200, 60)
+    else:
+        g = int(200 * frac * 2)
+        color = (220, g, 30)
+
+    pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, BAR_W, BAR_H))
+    pygame.draw.rect(screen, color,        (bar_x, bar_y, int(BAR_W * frac), BAR_H))
+    pygame.draw.rect(screen, "white",      (bar_x, bar_y, BAR_W, BAR_H), LINE_WIDTH)
+
+    lbl = font.render(f"{int(hp)}", True, "white")
+    screen.blit(lbl, lbl.get_rect(midright=(bar_x - 6, bar_y + BAR_H // 2)))

@@ -1,7 +1,12 @@
 import random
 import pygame
 
-from ..constants import SCREEN_WIDTH, SCREEN_HEIGHT, INVINCIBILITY_TIME, PLAYER_RADIUS, SHOT_RADIUS
+from ..constants import (
+    SCREEN_WIDTH, SCREEN_HEIGHT, INVINCIBILITY_TIME, PLAYER_RADIUS, SHOT_RADIUS,
+    ASTEROID_CONTACT_DAMAGE, ENEMY_CONTACT_DAMAGE, CENTIBOMB_CONTACT_DAMAGE, BOSS_CONTACT_DAMAGE,
+    PLAYER_MAX_HP, SYPHON_LIFESTEAL_PER_STACK,
+    BACKUP_ENGINE_HEAL_BASE, BACKUP_ENGINE_HEAL_STEP,
+)
 from ..entities.shot import Shot
 from ..entities.xporb import XPOrb
 from ..entities.bigxporb import BigXPOrb
@@ -18,6 +23,13 @@ CRIT_FLASH_DURATION = 0.12
 
 def _roll_crit(crit_chance: int) -> bool:
     return random.randint(1, 100) <= crit_chance
+
+
+def _apply_syphon(state, dmg):
+    if state.syphon_stacks > 0:
+        cap  = 3.0 * state.syphon_stacks
+        heal = min(cap, dmg * SYPHON_LIFESTEAL_PER_STACK * state.syphon_stacks)
+        state.hp = min(PLAYER_MAX_HP, state.hp + heal)
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +121,7 @@ def handle_shot_asteroid(state, groups):
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
+            _apply_syphon(state, dmg)
             if a.take_damage(dmg): state.score += combo_kill(state, kill_asteroid, a)
             else: spawn_hit_effect(a.position.x, a.position.y)
 
@@ -128,6 +141,7 @@ def handle_shot_enemy(state, groups):
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
+            _apply_syphon(state, dmg)
             if e.take_damage(dmg): state.score += combo_kill(state, kill_entity, e)
             else: spawn_hit_effect(e.position.x, e.position.y, shot_vel)
 
@@ -147,6 +161,7 @@ def handle_shot_centibomb(state, groups):
             if s.bounces_left > 0:
                 _spawn_ricochets(state, groups, s)
             s.kill()
+            _apply_syphon(state, dmg)
             if c.take_damage(dmg): state.score += combo_kill(state, kill_centibomb, c)
             else: spawn_hit_effect(c.position.x, c.position.y, shot_vel)
 
@@ -164,6 +179,7 @@ def handle_shot_boss(state, groups):
                 if is_crit:
                     state.current_boss.crit_flash_timer = CRIT_FLASH_DURATION
                 s.kill()
+                _apply_syphon(state, dmg)
                 spawn_hit_effect(int(seg_pos.x), int(seg_pos.y))
                 if state.current_boss.take_damage(dmg):
                     kill_boss(state, groups)
@@ -374,18 +390,25 @@ def handle_shield(state, player, groups):
             break
 
 
-def _take_player_hit(state, player):
-    """Deduct a life or consume shield. Returns True if player died."""
+def _take_player_hit(state, player, damage):
+    """Apply damage to HP or consume shield. Returns True if player died."""
     log_event("player_hit")
     if state.shield_active:
-        state.shield_active        = False
-        state.shield_age           = 0.0
+        state.shield_active         = False
+        state.shield_age            = 0.0
         state.shield_recharge_timer = 0.0
         return False
-    state.lives           -= 1
-    state.life_regen_timer = 0.0
-    state.shake_timer      = SHAKE_DURATION
-    if state.lives <= 0:
+    state.hp          -= damage
+    state.shake_timer  = SHAKE_DURATION
+    if state.hp <= 0:
+        if (state.backup_engine_stacks > 0
+                and state.backup_engine_timer >= state.backup_engine_cooldown):
+            heal_frac      = BACKUP_ENGINE_HEAL_BASE + (state.backup_engine_stacks - 1) * BACKUP_ENGINE_HEAL_STEP
+            state.hp       = int(PLAYER_MAX_HP * heal_frac)
+            state.backup_engine_timer      = 0.0
+            player.invincibility_timer     = INVINCIBILITY_TIME * 2
+            return False
+        state.hp           = 0
         state.death_active = True
         state.death_timer  = 0.0
         state.death_pos    = pygame.Vector2(player.position)
@@ -402,7 +425,7 @@ def handle_boss_shot_player(state, player, groups):
     for s in list(groups['boss_shots']):
         if s.alive() and s.position.distance_to(player.position) < s.radius + player.radius:
             s.kill()
-            _take_player_hit(state, player)
+            _take_player_hit(state, player, s.damage)
             return  # one hit per frame
 
 
@@ -417,11 +440,18 @@ def handle_player_damage(state, player, groups):
             for seg_pos, seg_r in state.current_boss.get_segments()
         )
         if touching:
-            _take_player_hit(state, player)
+            _take_player_hit(state, player, BOSS_CONTACT_DAMAGE)
             return
 
-    # asteroid / enemy touch
-    for a in list(groups['asteroids']) + list(groups['enemies']) + list(groups['centibombs']):
+    for a in list(groups['asteroids']):
         if a.collides_with(player):
-            _take_player_hit(state, player)
-            break
+            _take_player_hit(state, player, ASTEROID_CONTACT_DAMAGE)
+            return
+    for e in list(groups['enemies']):
+        if e.collides_with(player):
+            _take_player_hit(state, player, ENEMY_CONTACT_DAMAGE)
+            return
+    for c in list(groups['centibombs']):
+        if c.collides_with(player):
+            _take_player_hit(state, player, CENTIBOMB_CONTACT_DAMAGE)
+            return

@@ -38,6 +38,8 @@ UPGRADE_POOL = [
     {"name": "Plow",             "rarity": "uncommon"},
     {"name": "Vortex Field",     "rarity": "legendary"},
     {"name": "Little Buddy",     "rarity": "legendary"},
+    {"name": "Syphon Bullets",   "rarity": "uncommon"},
+    {"name": "Backup Engine",    "rarity": "legendary"},
 ]
 
 _overlay    = None
